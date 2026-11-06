@@ -61,18 +61,18 @@ body{background:var(--bg);color:var(--txt);font-size:14px;}
 .searchwrap input{flex:1;}
 .hint{color:var(--muted);font-size:11px;margin-top:8px;}
 /* CARDS 6 DOCS */
-.docs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
-@media(max-width:1050px){.docs-grid{grid-template-columns:repeat(2,1fr);}}
-@media(max-width:650px){.docs-grid{grid-template-columns:1fr;}}
-.doc-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px;display:flex;flex-direction:column;}
-.doc-head{display:flex;align-items:center;gap:9px;margin-bottom:12px;}
-.pdf-ic{width:30px;height:34px;border-radius:5px;background:#c0392b;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;}
-.doc-head b{font-size:16px;letter-spacing:1px;}
-.drop{border:2px dashed var(--line);border-radius:10px;padding:22px 10px;text-align:center;color:var(--muted);font-size:12px;cursor:pointer;transition:.15s;min-height:92px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;}
+.docs-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+@media(max-width:1100px){.docs-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:650px){.docs-grid{grid-template-columns:repeat(2,1fr);}}
+.doc-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;}
+.doc-head{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.pdf-ic{width:22px;height:26px;border-radius:4px;background:#c0392b;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff;}
+.doc-head b{font-size:14px;letter-spacing:.5px;}
+.drop{border:2px dashed var(--line);border-radius:8px;padding:10px 6px;text-align:center;color:var(--muted);font-size:10px;cursor:pointer;transition:.15s;min-height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
 .drop:hover,.drop.over{border-color:var(--cyan);background:rgba(0,160,220,.08);color:#cfe8f7;}
-.drop .big{font-size:26px;}
-.doc-actions{display:flex;gap:8px;margin-top:11px;}
-.doc-actions .btn{flex:1;justify-content:center;padding:8px 6px;font-size:12px;}
+.drop .big{font-size:20px;}
+.doc-actions{display:flex;flex-direction:column;gap:5px;margin-top:8px;}
+.doc-actions .btn{width:100%;justify-content:center;padding:6px 4px;font-size:11px;}
 .filestate{margin-top:10px;font-size:11px;color:var(--muted);}
 .filestate.ok{color:#7fe39a;}
 .filelist{margin-top:8px;font-size:11px;}
@@ -139,8 +139,7 @@ tr:hover td{background:var(--panel2);}
 
   <main class="main">
     <!-- ================= DOCUMENTOS ================= -->
-    <section class="view active" id="view-documentos">
-      <div class="card-box">
+    <section class="view active" id="view-documentos">      <div class="card-box">
         <div class="sec-title">Sección 1 – Conexión a Google Drive y datos del lote</div>
         <div class="btn-row" style="margin-bottom:14px">
           <button class="btn btn-cyan" id="btnConectarDrive">☁️ Conectar con Google Drive</button>
@@ -171,15 +170,6 @@ tr:hover td{background:var(--panel2);}
         </div>
         <div class="statusbar" id="statusbar">Continuando lote: <b>1</b> (0 de 6 documentos ya guardados)</div>
         <div class="hint">Al conectar Google Drive, cada lote se sube solo a la carpeta <b>FACTURACION EVENTO</b>, dentro de una subcarpeta con el número del lote, con los PDF ya renombrados.</div>
-      </div>
-
-      <div class="card-box">
-        <div class="sec-title">Carpetas de admisiones / facturas</div>
-        <div class="searchwrap">
-          <div class="field" style="flex:1"><input id="buscaAdm" placeholder="N° de admisión, N° de factura, documento o nombre del paciente..."></div>
-          <button class="btn btn-ghost" id="btnLimpiarAdm">✕ Limpiar</button>
-        </div>
-        <div class="hint">Escribe el N° de admisión, N° de factura o documento del paciente arriba para filtrar los lotes guardados (<span id="totalCarpetas">0</span> carpetas en total).</div>
       </div>
 
       <div class="card-box">
@@ -247,7 +237,7 @@ tr:hover td{background:var(--panel2);}
 </div>
 </div><!-- /#app -->
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v1.2 · ☁️ DRIVE</div>
+<div class="verbadge">ARCHIVO DIGITAL v1.3 · ☁️ DRIVE</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -292,7 +282,7 @@ function buildCards(){
       <div class="doc-head"><span class="pdf-ic">PDF</span><b>${d.id}</b></div>
       <div class="drop" data-tipo="${d.id}">
         <span class="big">⬆️</span>
-        <span>Arrastra PDF aquí o haz clic para seleccionar</span>
+        <span>PDF: soltar o clic</span>
       </div>
       <div class="doc-actions">
         <button class="btn btn-ghost btn-ver" data-tipo="${d.id}">👁️ Ver</button>
@@ -482,10 +472,9 @@ function registrarLote(nit,lote,docs){
 }
 function actualizarTotal(){
   const data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
-  $('#totalCarpetas').textContent=data.length;
+  const el=$('#totalCarpetas'); if(el) el.textContent=data.length;
 }
 /* ---------- FILTRO ADMISIONES (vista Documentos) ---------- */
-$('#btnLimpiarAdm').addEventListener('click',()=>{$('#buscaAdm').value='';});
 
 /* ---------- BUSQUEDA ---------- */
 $('#buscaGlobal').addEventListener('input',renderBusqueda);
