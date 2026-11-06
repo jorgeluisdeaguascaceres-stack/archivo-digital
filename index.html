@@ -283,7 +283,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v2.0 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v2.1 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -607,9 +607,38 @@ $('#btnGuardarLote').addEventListener('click',async()=>{
 
 function registrarLote(nit,lote,docs){
   const data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
-  data.unshift({nit,lote,docs,fecha:new Date().toLocaleString('es-CO')});
+  const idx=data.findIndex(l=>String(l.lote)===String(lote));
+  if(idx>=0){
+    /* El lote YA existe: se ACTUALIZA el mismo registro (no se crea otro como si fuera otra carpeta).
+       Se unen los documentos por tipo, sin duplicar. */
+    const ex=data[idx];
+    if(nit) ex.nit=nit;
+    const mapa={};
+    (ex.docs||[]).forEach(d=>{mapa[d.tipo]=d;});
+    (docs||[]).forEach(d=>{mapa[d.tipo]=d;});
+    ex.docs=Object.values(mapa);
+    ex.fecha=new Date().toLocaleString('es-CO');
+    data.splice(idx,1);
+    data.unshift(ex);
+  }else{
+    data.unshift({nit,lote,docs,fecha:new Date().toLocaleString('es-CO')});
+  }
   localStorage.setItem(LS_LOTES,JSON.stringify(data));
   actualizarTotal();
+}
+/* Limpia carpetas duplicadas que quedaron de antes: deja UNA sola por lote, uniendo sus documentos */
+function dedupeLotes(){
+  let data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
+  const byLote={}; const orden=[];
+  data.forEach(l=>{
+    const k=String(l.lote);
+    if(!byLote[k]){ byLote[k]={nit:l.nit,lote:l.lote,docs:[],fecha:l.fecha}; orden.push(k); }
+    const ent=byLote[k];
+    if(l.nit && !ent.nit) ent.nit=l.nit;
+    const have=new Set(ent.docs.map(d=>d.tipo));
+    (l.docs||[]).forEach(d=>{ if(!have.has(d.tipo)){ ent.docs.push(d); have.add(d.tipo); } });
+  });
+  localStorage.setItem(LS_LOTES,JSON.stringify(orden.map(k=>byLote[k])));
 }
 function actualizarTotal(){
   const data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
@@ -1144,6 +1173,7 @@ updateDriveUI();
 initDrive();
 if($('#btnConectarDrive'))$('#btnConectarDrive').addEventListener('click',conectarDrive);
 updateStatus();
+dedupeLotes();
 actualizarTotal();
 (function restoreSesion(){
   try{
