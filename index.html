@@ -237,7 +237,7 @@ tr:hover td{background:var(--panel2);}
 </div>
 </div><!-- /#app -->
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v1.4 · ☁️ DRIVE</div>
+<div class="verbadge">ARCHIVO DIGITAL v1.5 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -330,6 +330,7 @@ async function guardarDoc(tipo){
   try{
     const bytes=await mergeSlot(tipo);const nombre=nombreArchivo(tipo);
     if(driveOn){
+      if(!await confirmarLoteExistente(lote)){toast('⏹️ Cancelado. Cambia el número de lote si no deseas usar la carpeta existente.');return;}
       const lf=await ensureLoteFolder(lote);
       await uploadPdfCached(lote,nombre,bytes,lf);
       markCardSaved(tipo,nombre);
@@ -385,8 +386,19 @@ $('#btnCrear').addEventListener('click',async()=>{
   const lote=$('#cfgLote').value.trim();
   if(!lote){toast('⚠️ Escribe el nombre del lote.');return;}
   if(driveOn){
-    try{const root=await ensureFevRoot();await ensureFolder(String(lote),root);
-      toast('✅ Carpeta del lote "'+lote+'" lista en Google Drive (FACTURACION EVENTO).');
+    try{
+      const root=await ensureFevRoot();
+      const existe=await findFolder(String(lote),root);
+      if(existe){
+        const ok=confirm('⚠️ La carpeta del LOTE "'+lote+'" YA EXISTE en Google Drive (FACTURACION EVENTO).\n\n¿Desea CONTINUAR cargando en esa misma carpeta?\n\nAceptar = usar la carpeta existente.\nCancelar = detener (cambie el número de lote).');
+        if(!ok){toast('⏹️ Cancelado. Cambie el número de lote.');return;}
+        lotesConfirmados[lote]=true;
+        toast('✅ La carpeta del lote "'+lote+'" ya existe. Seguirás cargando en ella.');
+      }else{
+        await createFolder(String(lote),root);
+        lotesConfirmados[lote]=true;
+        toast('✅ Carpeta del lote "'+lote+'" creada en Google Drive (FACTURACION EVENTO).');
+      }
     }catch(e){toast('❌ No se pudo crear en Drive: '+e.message);}
   }else{toast('⚠️ Primero conéctate a Google Drive con el botón ☁️ de arriba.');}
 });
@@ -434,6 +446,11 @@ $('#btnGuardarLote').addEventListener('click',async()=>{
       generados.push({tipo:d.id,nombre:nombreArchivo(d.id),paginas:0});
     }
     if(driveOn){
+      if(!await confirmarLoteExistente(lote)){
+        toast('⏹️ Cancelado. Cambia el número de lote si no deseas usar la carpeta existente.');
+        $('#btnGuardarLote').disabled=false;$('#btnGuardarLote').innerHTML='💾 Guardar lote (6 documentos)';
+        return;
+      }
       const n=await subirLoteADrive(pdfMap,lote);
       generados.forEach(g=>markCardSaved(g.tipo,g.nombre));
       toast('☁️ Lote '+lote+' guardado en Google Drive → FACTURACION EVENTO / '+lote+' ('+n+' PDF).');
@@ -479,11 +496,29 @@ function renderBusqueda(){
   const cont=$('#tablaBusqueda');
   if(!data.length){cont.innerHTML='<div class="empty">No hay lotes guardados todavía.</div>';return;}
   let rows=data.map(l=>{
-    const pill=l.docs.length===6?'<span class="pill full">6/6 completo</span>':`<span class="pill part">${l.docs.length}/6</span>`;
-    return `<tr><td><b>${l.lote}</b></td><td>${l.nit}</td><td>${pill}</td><td>${l.docs.map(d=>d.tipo).join(', ')}</td><td>${l.fecha}</td></tr>`;
+    const ORDEN=['CRC','PDE','HEV','RED','OPF','FEV'];
+    const cargados=l.docs.map(d=>d.tipo);
+    const pill=cargados.length===6?'<span class="pill full">6/6 completo</span>':`<span class="pill part">${cargados.length}/6</span>`;
+    const chips=ORDEN.map(t=> cargados.includes(t)
+        ? `<span class="pill full" style="margin:2px">${t} ✓</span>`
+        : `<span class="pill part" style="margin:2px;opacity:.55">${t} ⏳</span>`).join('');
+    const le=String(l.lote).replace(/'/g,'');const ne=String(l.nit).replace(/'/g,'');
+    const btn=cargados.length<6
+        ? `<button class="btn btn-green" style="padding:6px 12px" onclick="continuarLote('${le}','${ne}')">▶️ Continuar cargando</button>`
+        : '<span style="color:#7fe39a;font-size:12px;font-weight:600">✅ Completo</span>';
+    return `<tr><td><b>${l.lote}</b></td><td>${l.nit}</td><td>${pill}</td><td>${chips}</td><td>${l.fecha}</td><td>${btn}</td></tr>`;
   }).join('');
-  cont.innerHTML=`<table><thead><tr><th>Lote</th><th>NIT</th><th>Estado</th><th>Documentos</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
+  cont.innerHTML=`<table><thead><tr><th>Lote</th><th>NIT</th><th>Estado</th><th>Documentos (✓ cargado / ⏳ pendiente)</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
+window.continuarLote=function(lote,nit){
+  $('#cfgLote').value=lote;
+  if(nit) $('#cfgNit').value=nit;
+  DOC_TYPES.forEach(d=>{slots[d.id]=[];renderSlot(d.id);});
+  const item=[...$$('.side-item')].find(it=>it.dataset.view==='documentos');
+  if(item) item.click();
+  updateStatus();
+  toast('▶️ Continuando lote '+lote+'. Carga los documentos PENDIENTES y pulsa Guardar.');
+};
 
 /* ---------- CUENTAS DE COBRO ---------- */
 $('#btnAddCC').addEventListener('click',()=>{
@@ -530,6 +565,9 @@ function aplicarSesion(){
   $('#curUserName').textContent=currentUser.user.toUpperCase();
   $('#curUserRole').textContent=currentUser.master?'MAESTRO':'USUARIO';
   $('#curUserAvatar').textContent=currentUser.user.charAt(0).toUpperCase();
+  // Solo el ADMINISTRADOR (maestro) ve el botón de conectar/cambiar Drive
+  const bd=$('#btnConectarDrive');
+  if(bd) bd.style.display = currentUser.master ? '' : 'none';
   // permisos: mostrar solo las tarjetas permitidas
   $$('.side-item').forEach(it=>{
     const perm=it.dataset.perm;
@@ -573,7 +611,9 @@ window.delUser=i=>{const u=getUsers();u.splice(i,1);saveUsers(u);renderUsuarios(
 
 /* ================= GOOGLE DRIVE ================= */
 const GCLIENT_ID='523064756999-mgtbvhnh32puucqh13canqn67lq4dogn.apps.googleusercontent.com';
+const ADMIN_EMAIL='facturacionevnto2026@gmail.com'; /* correo FIJO del Drive del hospital */
 const DRIVE_SCOPE='openid email https://www.googleapis.com/auth/drive.file';
+let lotesConfirmados={}; /* lotes cuyo aviso "ya existe" ya respondió el usuario */
 const LS_FEVID='archivo_digital_fev_folder_id';
 let tokenClient=null, gToken=null, gTokenExp=0, gEmail=null, driveOn=false;
 let _tokRes=null,_tokRej=null;
@@ -582,7 +622,7 @@ function gisReady(){return typeof google!=='undefined' && google.accounts && goo
 function initDrive(){
   if(!gisReady()){setTimeout(initDrive,400);return;}
   tokenClient=google.accounts.oauth2.initTokenClient({
-    client_id:GCLIENT_ID, scope:DRIVE_SCOPE,
+    client_id:GCLIENT_ID, scope:DRIVE_SCOPE, hint:ADMIN_EMAIL,
     callback:(resp)=>{
       if(resp && resp.error){ if(_tokRej)_tokRej(new Error(resp.error)); _tokRes=_tokRej=null; return; }
       gToken=resp.access_token;
@@ -613,6 +653,7 @@ async function fetchEmail(){
   }catch(e){}
 }
 async function conectarDrive(){
+  if(currentUser && !currentUser.master){toast('🔒 Solo el ADMINISTRADOR puede conectar o cambiar la cuenta de Google Drive.');return;}
   try{
     await getToken(true);
     await fetchEmail();
@@ -715,6 +756,20 @@ async function uploadPdfCached(lote,name,bytes,parent){
   store[lote].files[name]=fid; saveDriveIdStore(store);
   await dedupeFile(name,parent,fid);
   return fid;
+}
+async function confirmarLoteExistente(lote){
+  if(!driveOn) return true;
+  if(lotesConfirmados[lote]) return true;
+  try{
+    const root=await ensureFevRoot();
+    const existe=await findFolder(String(lote),root);
+    if(existe){
+      const ok=confirm('⚠️ La carpeta del LOTE "'+lote+'" YA EXISTE en Google Drive (FACTURACION EVENTO).\n\n¿Desea CONTINUAR cargando documentos en esa misma carpeta?\n\nAceptar = seguir cargando en la carpeta existente.\nCancelar = detener (cambie el número de lote).');
+      if(!ok) return false;
+    }
+    lotesConfirmados[lote]=true;
+  }catch(e){}
+  return true;
 }
 async function subirLoteADrive(pdfMap,lote){
   const loteFolder=await ensureLoteFolder(lote);
