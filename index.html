@@ -61,18 +61,18 @@ body{background:var(--bg);color:var(--txt);font-size:14px;}
 .searchwrap input{flex:1;}
 .hint{color:var(--muted);font-size:11px;margin-top:8px;}
 /* CARDS 6 DOCS */
-.docs-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
-@media(max-width:1100px){.docs-grid{grid-template-columns:repeat(3,1fr);}}
-@media(max-width:650px){.docs-grid{grid-template-columns:repeat(2,1fr);}}
-.doc-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;}
-.doc-head{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
-.pdf-ic{width:22px;height:26px;border-radius:4px;background:#c0392b;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff;}
-.doc-head b{font-size:14px;letter-spacing:.5px;}
-.drop{border:2px dashed var(--line);border-radius:8px;padding:10px 6px;text-align:center;color:var(--muted);font-size:10px;cursor:pointer;transition:.15s;min-height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+.docs-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}
+@media(max-width:820px){.docs-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:520px){.docs-grid{grid-template-columns:repeat(2,1fr);}}
+.doc-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;}
+.doc-head{display:flex;align-items:center;gap:5px;margin-bottom:7px;}
+.pdf-ic{width:20px;height:24px;border-radius:4px;background:#c0392b;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff;}
+.doc-head b{font-size:13px;letter-spacing:.3px;}
+.drop{border:2px dashed var(--line);border-radius:8px;padding:8px 4px;text-align:center;color:var(--muted);font-size:9px;cursor:pointer;transition:.15s;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;}
 .drop:hover,.drop.over{border-color:var(--cyan);background:rgba(0,160,220,.08);color:#cfe8f7;}
-.drop .big{font-size:20px;}
-.doc-actions{display:flex;flex-direction:column;gap:5px;margin-top:8px;}
-.doc-actions .btn{width:100%;justify-content:center;padding:6px 4px;font-size:11px;}
+.drop .big{font-size:18px;}
+.doc-actions{display:flex;flex-direction:column;gap:4px;margin-top:7px;}
+.doc-actions .btn{width:100%;justify-content:center;padding:5px 4px;font-size:10px;}
 .filestate{margin-top:10px;font-size:11px;color:var(--muted);}
 .filestate.ok{color:#7fe39a;}
 .filelist{margin-top:8px;font-size:11px;}
@@ -237,7 +237,7 @@ tr:hover td{background:var(--panel2);}
 </div>
 </div><!-- /#app -->
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v1.3 · ☁️ DRIVE</div>
+<div class="verbadge">ARCHIVO DIGITAL v1.4 · ☁️ DRIVE</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -333,16 +333,9 @@ async function guardarDoc(tipo){
       const lf=await ensureLoteFolder(lote);
       await uploadPdfCached(lote,nombre,bytes,lf);
       markCardSaved(tipo,nombre);
-      toast('☁️ '+nombre+' subido a Google Drive (FACTURACION EVENTO / '+lote+').');
-    }else if(dirHandle){
-      const loteDir=await dirHandle.getDirectoryHandle(lote,{create:true});
-      const fh=await loteDir.getFileHandle(nombre,{create:true});
-      const w=await fh.createWritable();await w.write(bytes);await w.close();
-      toast('✅ '+nombre+' guardado en disco.');
+      toast('☁️ '+nombre+' guardado en Google Drive (FACTURACION EVENTO / '+lote+').');
     }else{
-      const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
-      a.download=nombre;a.click();
-      toast('✅ '+nombre+' descargado.');
+      toast('⚠️ Conéctate a Google Drive (botón ☁️ de arriba) para guardar '+nombre+'.');
     }
   }catch(e){toast('❌ Error: '+e.message);}
 }
@@ -527,6 +520,7 @@ function doLogin(){
   else{const m=getUsers().find(x=>x.user.toUpperCase()===u.toUpperCase() && x.pass===p);if(m)found={...m,master:false};}
   if(!found){$('#loginErr').textContent='Usuario o contraseña incorrectos.';return;}
   currentUser=found;
+  localStorage.setItem('archivo_digital_sesion',JSON.stringify({user:found.user,perms:found.perms,master:!!found.master}));
   $('#loginErr').textContent='';$('#loginPass').value='';
   $('#loginScreen').style.display='none';
   $('#app').style.display='block';
@@ -549,6 +543,7 @@ $('#btnLogin').addEventListener('click',doLogin);
 $('#loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 $('#loginUser').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 $('#btnLogout').addEventListener('click',()=>{
+  localStorage.removeItem('archivo_digital_sesion');
   currentUser=null;$('#app').style.display='none';
   $('#loginScreen').style.display='flex';
   $('#loginUser').value='';$('#loginPass').value='';
@@ -596,6 +591,12 @@ function initDrive(){
     }
   });
   updateDriveUI();
+  const savedDrive=localStorage.getItem('archivo_digital_drive_on');
+  if(savedDrive){
+    if(savedDrive!=='1')gEmail=savedDrive;
+    driveOn=true; updateDriveUI();
+    getToken(false).then(()=>fetchEmail()).then(()=>updateDriveUI()).catch(()=>{});
+  }
 }
 function getToken(interactive){
   return new Promise((resolve,reject)=>{
@@ -615,7 +616,7 @@ async function conectarDrive(){
   try{
     await getToken(true);
     await fetchEmail();
-    driveOn=true; updateDriveUI();
+    driveOn=true; localStorage.setItem('archivo_digital_drive_on', gEmail||'1'); updateDriveUI();
     toast('✅ Conectado a Google Drive'+(gEmail?' ('+gEmail+')':''));
   }catch(e){toast('❌ No se pudo conectar: '+e.message);}
 }
@@ -625,8 +626,11 @@ function updateDriveUI(){
   if(driveOn){b.textContent='☁️ Reconectar Google Drive';s.textContent='Conectado'+(gEmail?': '+gEmail:'');s.style.color='#7fe39a';s.style.borderColor='var(--green)';}
   else{b.textContent='☁️ Conectar con Google Drive';s.textContent='No conectado';s.style.color='';s.style.borderColor='';}
 }
+async function validToken(){
+  try{return await getToken(false);}catch(e){return await getToken(true);}
+}
 async function driveFetch(url,opts){
-  const t=await getToken(false);
+  const t=await validToken();
   opts=opts||{}; opts.headers=opts.headers||{};
   opts.headers['Authorization']='Bearer '+t;
   const r=await fetch(url,opts);
@@ -726,6 +730,18 @@ initDrive();
 if($('#btnConectarDrive'))$('#btnConectarDrive').addEventListener('click',conectarDrive);
 updateStatus();
 actualizarTotal();
-$('#loginUser').focus();
+(function restoreSesion(){
+  try{
+    const s=JSON.parse(localStorage.getItem('archivo_digital_sesion')||'null');
+    if(s && s.user){
+      currentUser={user:s.user,perms:s.perms||['documentos','busqueda','cuentas','configuraciones'],master:!!s.master};
+      $('#loginScreen').style.display='none';
+      $('#app').style.display='block';
+      aplicarSesion();
+      return;
+    }
+  }catch(e){}
+  $('#loginUser').focus();
+})();
 </script>
 </html>
