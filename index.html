@@ -235,15 +235,27 @@ tr:hover td{background:var(--panel2);}
     <!-- ================= CUENTAS DE COBRO ================= -->
     <section class="view" id="view-cuentas">
       <div class="card-box">
-        <div class="sec-title">Cuentas de cobro</div>
-        <div class="grid-cfg" style="grid-template-columns:1fr 1fr 1fr">
-          <div class="field"><label>N° cuenta de cobro</label><input id="ccNum" placeholder="N° consecutivo (automático)"></div>
-          <div class="field"><label>Lote asociado</label><input id="ccLote" placeholder="Ej: 1"></div>
-          <div class="field"><label>Valor</label><input id="ccValor" placeholder="$"></div>
+        <div class="sec-title">CUENTAS DE COBRO GUARDADAS</div>
+        <div class="hint" style="margin:2px 0 10px">Aquí quedan guardadas las cuentas que creas en la pestaña <b>Búsqueda</b> (marcas las carpetas y pulsas “Crear cuenta de cobro”). Desde aquí puedes volver a <b>descargar su ZIP</b>, <b>editar las facturas</b> o <b>validar los soportes</b> cuando quieras.</div>
+        <div class="searchwrap" style="align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="field" style="max-width:340px;flex:1"><input id="ccBuscar" placeholder="Buscar cuenta por N°, EPS, factura o lote..."></div>
+          <select id="ccFiltroEps" class="btn btn-ghost" style="cursor:pointer"><option value="">Todas las EPS</option><option>FIDUPREVISORA S.A</option><option>COOSALUD EPS SUBSIDIADO</option></select>
+          <button class="btn btn-cyan" id="btnCCActualizar">🔄 Actualizar</button>
+          <span class="badge" id="ccCount">0 cuentas</span>
         </div>
-        <div class="btn-row"><button class="btn btn-cyan" id="btnAddCC">➕ Registrar cuenta de cobro</button></div>
         <div id="tablaCuentas"></div>
+        <details style="margin-top:14px">
+          <summary style="cursor:pointer;font-weight:600;color:var(--cyan)">➕ Agregar una cuenta manual (opcional)</summary>
+          <div class="grid-cfg" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-top:10px">
+            <div class="field"><label>N° cuenta de cobro</label><input id="ccNum" placeholder="N° consecutivo (automático)"></div>
+            <div class="field"><label>EPS</label><input id="ccEps" placeholder="FIDUPREVISORA S.A" value="FIDUPREVISORA S.A"></div>
+            <div class="field"><label>Lote(s) / facturas</label><input id="ccLote" placeholder="Ej: 426899, 427141"></div>
+            <div class="field"><label>Valor</label><input id="ccValor" placeholder="$"></div>
+          </div>
+          <div class="btn-row"><button class="btn btn-cyan" id="btnAddCC">➕ Registrar cuenta de cobro</button></div>
+        </details>
       </div>
+    </section>
     </section>
 
     <!-- ================= CONFIGURACIONES ================= -->
@@ -284,7 +296,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v2.3 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v2.4 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -741,7 +753,7 @@ async function crearCCDesde(lotes){
   if(num===null) return;
   const n=String(num).trim(); if(!n){toast('⏹️ Sin número, cancelado.');return;}
   const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
-  data.unshift({num:n,lote:lotes.join(', '),valor:'',fecha:new Date().toLocaleString('es-CO')});
+  data.unshift({id:nuevoCCId(),num:n,eps:'FIDUPREVISORA S.A',lotes:lotes.slice(),valor:'',fecha:new Date().toLocaleString('es-CO')});
   localStorage.setItem(LS_CC,JSON.stringify(data));
   renderCuentas();
   toast('✅ Cuenta de cobro "'+n+'" creada con '+lotes.length+' lote(s).');
@@ -878,28 +890,115 @@ function siguienteNumeroCC(){
   });
   return max+1;
 }
+function nuevoCCId(){return 'cc'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function ccLotesDe(c){ if(Array.isArray(c.lotes)) return c.lotes.filter(Boolean); if(c.lote) return String(c.lote).split(/[,;]+/).map(s=>s.trim()).filter(Boolean); return []; }
+function ccEpsDe(c){ return c.eps||'FIDUPREVISORA S.A'; }
+function ensureCCIds(){ const data=JSON.parse(localStorage.getItem(LS_CC)||'[]'); let ch=false; data.forEach(c=>{ if(!c.id){c.id=nuevoCCId();ch=true;} }); if(ch) localStorage.setItem(LS_CC,JSON.stringify(data)); return data; }
+function ccPorId(id){ return (JSON.parse(localStorage.getItem(LS_CC)||'[]')).find(c=>c.id===id); }
 $('#btnAddCC').addEventListener('click',()=>{
-  const num=$('#ccNum').value.trim(),lote=$('#ccLote').value.trim(),valor=$('#ccValor').value.trim();
+  const num=$('#ccNum').value.trim();
+  const eps=($('#ccEps')?$('#ccEps').value.trim():'')||'FIDUPREVISORA S.A';
+  const loteRaw=$('#ccLote').value.trim(),valor=$('#ccValor').value.trim();
   if(!num){toast('⚠️ Escribe el N° de cuenta de cobro.');return;}
+  const lotes=loteRaw?loteRaw.split(/[,;]+/).map(s=>s.trim()).filter(Boolean):[];
   const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
-  data.unshift({num,lote,valor,fecha:new Date().toLocaleString('es-CO')});
+  data.unshift({id:nuevoCCId(),num,eps,lotes,valor,fecha:new Date().toLocaleString('es-CO')});
   localStorage.setItem(LS_CC,JSON.stringify(data));
   $('#ccNum').value='';$('#ccLote').value='';$('#ccValor').value='';
   renderCuentas();toast('✅ Cuenta de cobro registrada.');
 });
 function renderCuentas(){
   const campo=$('#ccNum');
-  if(campo && !campo.value.trim()){
-    const dcc=JSON.parse(localStorage.getItem(LS_CC)||'[]');
-    if(dcc.length) campo.value=String(siguienteNumeroCC());
-  }
-  const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
+  const dccAll=ensureCCIds();
+  if(campo && !campo.value.trim() && dccAll.length) campo.value=String(siguienteNumeroCC());
+  const q=($('#ccBuscar')?$('#ccBuscar').value:'').trim().toLowerCase();
+  const fEps=($('#ccFiltroEps')?$('#ccFiltroEps').value:'').trim();
+  let data=dccAll;
+  if(fEps) data=data.filter(c=>ccEpsDe(c)===fEps);
+  if(q) data=data.filter(c=>{ const lotes=ccLotesDe(c).join(' '); return (String(c.num)+' '+ccEpsDe(c)+' '+(c.valor||'')+' '+lotes).toLowerCase().includes(q); });
+  const cnt=$('#ccCount'); if(cnt) cnt.textContent=data.length+' cuenta'+(data.length===1?'':'s');
   const cont=$('#tablaCuentas');
-  if(!data.length){cont.innerHTML='<div class="empty">No hay cuentas de cobro registradas.</div>';return;}
-  let rows=data.map((c,i)=>`<tr><td><b>${c.num}</b></td><td>${c.lote||'-'}</td><td>${c.valor||'-'}</td><td>${c.fecha}</td><td><button class="btn btn-ghost" style="padding:4px 10px" onclick="delCC(${i})">🗑️</button></td></tr>`).join('');
-  cont.innerHTML=`<table><thead><tr><th>N° Cuenta</th><th>Lote</th><th>Valor</th><th>Fecha</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  if(!data.length){cont.innerHTML='<div class="empty">No hay cuentas de cobro'+((q||fEps)?' que coincidan con el filtro':' registradas')+'.</div>';return;}
+  let rows=data.map(c=>{
+    const lotes=ccLotesDe(c); const nf=lotes.length; const id=c.id;
+    const acc=`<button class="btn btn-green" style="padding:5px 10px;margin:2px" onclick="ccDescargarZip('${id}')">⬇️ Descargar ZIP</button>`
+      +`<button class="btn btn-cyan" style="padding:5px 10px;margin:2px" onclick="ccEditarFacturas('${id}')">✏️ Editar facturas</button>`
+      +`<button class="btn btn-ghost" style="padding:5px 10px;margin:2px" onclick="ccValidarSoportes('${id}')">🔎 Validar soportes</button>`
+      +`<button class="btn btn-ghost" style="padding:5px 10px;margin:2px" onclick="delCC('${id}')">🗑️</button>`;
+    return `<tr><td><b>${c.num}</b></td><td>${ccEpsDe(c)}</td><td>${c.fecha||'-'}</td><td style="text-align:center">${nf}</td><td>${c.valor||'-'}</td><td style="white-space:nowrap">${acc}</td></tr>`;
+  }).join('');
+  cont.innerHTML=`<table><thead><tr><th>N° de cuenta</th><th>EPS</th><th>Fecha</th><th style="text-align:center">Facturas</th><th>Valor</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
-window.delCC=i=>{const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');data.splice(i,1);localStorage.setItem(LS_CC,JSON.stringify(data));renderCuentas();};
+if($('#ccBuscar')) $('#ccBuscar').addEventListener('input',renderCuentas);
+if($('#ccFiltroEps')) $('#ccFiltroEps').addEventListener('change',renderCuentas);
+if($('#btnCCActualizar')) $('#btnCCActualizar').addEventListener('click',()=>{renderCuentas();toast('🔄 Lista actualizada.');});
+window.delCC=async function(id){
+  const c=ccPorId(id); if(!c)return;
+  const ok=await uiConfirm({title:'🗑️ Eliminar cuenta de cobro',msg:'¿Eliminar la cuenta de cobro <b>N° '+c.num+'</b> de la lista?<br><br>(No borra nada de Google Drive, solo quita el registro de esta lista.)',buttons:[{text:'Sí, eliminar',value:true,cls:'btn-green'},{text:'Cancelar',value:false,cls:'btn-ghost'}]});
+  if(!ok) return;
+  let data=JSON.parse(localStorage.getItem(LS_CC)||'[]'); data=data.filter(x=>x.id!==id);
+  localStorage.setItem(LS_CC,JSON.stringify(data)); renderCuentas(); toast('🗑️ Cuenta '+c.num+' eliminada de la lista.');
+};
+window.ccEditarFacturas=async function(id){
+  const c=ccPorId(id); if(!c)return;
+  const nuevo=await uiPrompt({title:'✏️ Editar facturas · cuenta '+c.num,msg:'Escribe los lotes/facturas separados por coma:',value:ccLotesDe(c).join(', ')});
+  if(nuevo===null) return;
+  const lotes=String(nuevo).split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
+  const val=await uiPrompt({title:'💵 Valor · cuenta '+c.num,msg:'Valor total (puedes dejarlo vacío):',value:c.valor||''});
+  let data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
+  data=data.map(x=>{ if(x.id===id){ x.lotes=lotes; if(val!==null) x.valor=String(val).trim(); } return x; });
+  localStorage.setItem(LS_CC,JSON.stringify(data)); renderCuentas();
+  toast('✅ Cuenta '+c.num+' actualizada ('+lotes.length+' factura(s)).');
+};
+window.ccValidarSoportes=async function(id){
+  const c=ccPorId(id); if(!c)return;
+  if(!driveOn){toast('⚠️ Conéctate a Google Drive para validar los soportes.');return;}
+  const lotes=ccLotesDe(c); if(!lotes.length){toast('⚠️ La cuenta no tiene lotes/facturas.');return;}
+  toast('🔎 Validando soportes en Drive...');
+  const ORDEN=['CRC','PDE','HEV','RED','OPF','FEV']; const SEP=String(sep()||'_');
+  let root; try{root=await ensureFevRoot();}catch(e){toast('❌ No se pudo abrir Drive.');return;}
+  const lineas=[]; let completos=0;
+  for(const lote of lotes){
+    try{
+      const folderId=await findFolder(String(lote),root);
+      if(!folderId){lineas.push('📁 '+lote+': ❌ carpeta no encontrada en Drive');continue;}
+      const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(name)&spaces=drive');
+      const j=await r.json(); const enDrive=(j.files||[]).map(f=>String(f.name).toUpperCase());
+      const tiene=ORDEN.filter(t=>enDrive.some(n=>n.startsWith((t+SEP).toUpperCase())));
+      const faltan=ORDEN.filter(t=>tiene.indexOf(t)<0);
+      if(!faltan.length){completos++;lineas.push('📁 '+lote+': ✅ 6/6 completos');}
+      else lineas.push('📁 '+lote+': ⚠️ '+tiene.length+'/6 — faltan: '+faltan.join(', '));
+    }catch(e){lineas.push('📁 '+lote+': ❌ '+e.message);}
+  }
+  uiAlert('🔎 Validación de soportes · cuenta '+c.num,'<div style="text-align:left;max-height:50vh;overflow:auto">'+lineas.join('<br>')+'<br><br><b>'+completos+' de '+lotes.length+' lote(s) completos.</b></div>');
+};
+window.ccDescargarZip=async function(id){
+  const c=ccPorId(id); if(!c)return;
+  if(!driveOn){toast('⚠️ Conéctate a Google Drive para descargar el ZIP.');return;}
+  if(typeof JSZip==='undefined'){toast('❌ El compresor aún carga, intenta en 5 segundos.');return;}
+  const lotes=ccLotesDe(c); if(!lotes.length){toast('⚠️ La cuenta no tiene lotes/facturas.');return;}
+  toast('⏳ Armando el ZIP de la cuenta '+c.num+'...');
+  try{
+    const root=await ensureFevRoot();
+    const zip=new JSZip();
+    const base=zip.folder('Cuenta_'+String(c.num).replace(/[^\w.-]/g,'_'));
+    let total=0;
+    for(const lote of lotes){
+      const sub=base.folder(String(lote).replace(/[^\w.-]/g,'_'));
+      const folderId=await findFolder(String(lote),root);
+      if(!folderId){ sub.file('_SIN_CARPETA_EN_DRIVE.txt','No se encontró la carpeta "'+lote+'" en Google Drive.'); continue; }
+      const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name,mimeType)&spaces=drive');
+      const j=await r.json();
+      for(const f of (j.files||[])){
+        if(f.mimeType && f.mimeType.indexOf('folder')>=0) continue;
+        try{ const bytes=await descargarPdf(f.id); sub.file(f.name,bytes); total++; }catch(e){}
+      }
+    }
+    const blob=await zip.generateAsync({type:'blob'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Cuenta_'+String(c.num)+'.zip'; a.click();
+    toast('✅ ZIP de la cuenta '+c.num+' descargado ('+total+' PDF).');
+  }catch(e){toast('❌ No se pudo armar el ZIP: '+e.message);}
+};
 
 /* ================= SEGURIDAD / USUARIOS ================= */
 const LS_USERS='archivo_digital_usuarios';
