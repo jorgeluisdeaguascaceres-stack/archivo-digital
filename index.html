@@ -115,6 +115,20 @@ tr:hover td{background:var(--panel2);}
 .modal-bx input{width:100%;padding:11px 12px;border-radius:9px;border:1px solid #24323f;background:#0b141d;color:#eaf2f8;font-size:14px;margin-bottom:16px;box-sizing:border-box;}
 .modal-acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
 .modal-acts .btn{padding:9px 16px;}
+/* ===== CUADRO (VISOR) DE PDF ===== */
+.pdf-ov{position:fixed;inset:0;background:rgba(5,12,20,.85);display:none;align-items:center;justify-content:center;z-index:100000;padding:20px;}
+.pdf-ov.show{display:flex;}
+.pdf-bx{background:#111c28;border:1px solid #24323f;border-radius:14px;width:min(1000px,96vw);height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+.pdf-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid #24323f;flex-wrap:wrap;}
+.pdf-bar b{font-size:14px;color:#eaf2f8;word-break:break-all;}
+.pdf-bx iframe{flex:1;border:0;width:100%;background:#fff;}
+/* ===== CUADRO (VISOR) DE PDF ===== */
+.pdf-ov{position:fixed;inset:0;background:rgba(5,12,20,.85);display:none;align-items:center;justify-content:center;z-index:100000;padding:20px;}
+.pdf-ov.show{display:flex;}
+.pdf-bx{background:#111c28;border:1px solid #24323f;border-radius:14px;width:min(1000px,96vw);height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+.pdf-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid #24323f;flex-wrap:wrap;}
+.pdf-bar b{font-size:14px;color:#eaf2f8;word-break:break-all;}
+.pdf-bx iframe{flex:1;border:0;width:100%;background:#fff;}
 </style>
 </head>
 <body>
@@ -205,6 +219,13 @@ tr:hover td{background:var(--panel2);}
           <button class="btn btn-ghost" id="btnPlantillaExcel">⬇️ Plantilla</button>
         </div>
         <div class="hint" style="margin:8px 0 2px"><b>Enter</b> = trae justo esa carpeta. <b>✏️ Renombrar</b> cambia el nombre en la app y en Google Drive. <b>Cambio masivo (Excel)</b>: columna A = nombre ACTUAL, columna B = nombre NUEVO.</div>
+        <div class="btn-row" style="margin:10px 0 2px">
+          <button class="btn btn-green" id="btnCCDesdeSel">🧾 Crear cuenta de cobro (seleccionados)</button>
+          <button class="btn btn-ghost" id="btnPlantillaCC">⬇️ Plantilla cuenta de cobro (1 columna)</button>
+          <label class="btn btn-ghost" style="cursor:pointer;margin:0">📄 Cuenta de cobro por Excel<input type="file" id="ccExcel" accept=".xlsx,.xls" style="display:none"></label>
+          <span class="badge" id="selCount">0 seleccionados</span>
+        </div>
+        <div class="hint" style="margin:2px 0 2px">Marca las casillas de la columna ☑️ para elegir varias carpetas y crear <b>una</b> cuenta de cobro con todas. La plantilla es una sola columna llamada <b>LOTE</b>.</div>
         <div id="tablaBusqueda"></div>
       </div>
     </section>
@@ -256,18 +277,22 @@ tr:hover td{background:var(--panel2);}
   <input id="modalInput" style="display:none">
   <div class="modal-acts" id="modalActs"></div>
 </div></div>
+<div class="pdf-ov" id="pdfOv"><div class="pdf-bx">
+  <div class="pdf-bar"><b id="pdfName">Documento</b><button class="btn btn-ghost" id="pdfClose">✕ Cerrar</button></div>
+  <iframe id="pdfFrame" title="PDF"></iframe>
+</div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v1.8 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v1.9 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
 const DOC_TYPES = [
-  { id:'CRC', action:'✅ Verificar CRC' },
-  { id:'PDE', action:null },
-  { id:'HEV', action:null },
-  { id:'RED', action:null },
-  { id:'OPF', action:null },
-  { id:'FEV', action:'🧾 Adjuntar factura automática' }
+  { id:'CRC' },
+  { id:'PDE' },
+  { id:'HEV' },
+  { id:'RED' },
+  { id:'OPF' },
+  { id:'FEV' }
 ];
 const LS_LOTES = 'archivo_digital_lotes';
 const LS_CC    = 'archivo_digital_cuentas';
@@ -366,38 +391,51 @@ function wireCards(){
   $$('.btn-save').forEach(b=>b.addEventListener('click',()=>guardarDoc(b.dataset.tipo)));
 }
 
-/* VER: muestra el PDF. Si la casilla tiene archivos cargados, muestra esos (unidos);
-   si está vacía, trae y muestra el PDF que YA está guardado en Google Drive para ese lote. */
+/* ===== CUADRO (VISOR) DE PDF DENTRO DE LA APP ===== */
+let _pdfUrl=null;
+function mostrarPdfEnCuadro(nombre,url){
+  if(_pdfUrl){try{URL.revokeObjectURL(_pdfUrl);}catch(e){}}
+  _pdfUrl=url;
+  const nm=$('#pdfName'); if(nm) nm.textContent=nombre||'Documento';
+  const fr=$('#pdfFrame'); if(fr) fr.src=url;
+  const ov=$('#pdfOv'); if(ov) ov.classList.add('show');
+}
+function cerrarPdfCuadro(){
+  const ov=$('#pdfOv'); if(ov) ov.classList.remove('show');
+  const fr=$('#pdfFrame'); if(fr) fr.src='about:blank';
+  if(_pdfUrl){try{URL.revokeObjectURL(_pdfUrl);}catch(e){}_pdfUrl=null;}
+}
+if($('#pdfClose')) $('#pdfClose').addEventListener('click',cerrarPdfCuadro);
+if($('#pdfOv')) $('#pdfOv').addEventListener('click',e=>{if(e.target.id==='pdfOv')cerrarPdfCuadro();});
+
+/* VER: muestra el PDF dentro de un cuadro en la app. Si la casilla tiene archivos
+   cargados muestra esos (unidos); si está vacía, trae el PDF ya guardado en Drive. */
 async function verDoc(tipo){
-  /* 1) Si hay archivos cargados en la casilla, se muestran esos */
+  /* 1) Archivos cargados en la casilla */
   if(slots[tipo].length){
     try{
       const bytes=await mergeSlot(tipo);
-      const blob=new Blob([bytes],{type:'application/pdf'});
-      window.open(URL.createObjectURL(blob),'_blank');
+      const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+      mostrarPdfEnCuadro(nombreArchivo(tipo),url);
     }catch(e){toast('❌ No se pudo abrir: '+e.message);}
     return;
   }
-  /* 2) Casilla vacía: intentamos traer el PDF ya guardado en Drive */
+  /* 2) Casilla vacía: traer el PDF ya guardado en Drive */
   if(!driveOn){toast('⚠️ La casilla '+tipo+' no tiene archivos. Conéctate a Google Drive para ver el PDF guardado.');return;}
   const lote=$('#cfgLote').value.trim();
   if(!lote){toast('⚠️ Escribe el lote primero.');return;}
   const nombre=nombreArchivo(tipo);
-  /* Abrimos la pestaña YA (dentro del clic) para que el navegador no la bloquee */
-  const win=window.open('','_blank');
-  if(win){try{win.document.write('<p style="font-family:sans-serif;padding:20px">Cargando '+nombre+' desde Google Drive...</p>');}catch(e){}}
+  toast('⏳ Buscando '+nombre+' en Drive...');
   try{
     const root=await ensureFevRoot();
     const folderId=await findFolder(String(lote),root);
-    if(!folderId){ if(win)win.close(); toast('⚠️ El lote "'+lote+'" aún no existe en Drive.'); return; }
+    if(!folderId){toast('⚠️ El lote "'+lote+'" aún no existe en Drive.');return;}
     const fid=await findFile(nombre,folderId);
-    if(!fid){ if(win)win.close(); toast('⚠️ '+nombre+' aún no está guardado en Drive.'); return; }
+    if(!fid){toast('⚠️ '+nombre+' aún no está guardado en Drive.');return;}
     const bytes=await descargarPdf(fid);
-    const blob=new Blob([bytes],{type:'application/pdf'});
-    const url=URL.createObjectURL(blob);
-    if(win){ win.location=url; } else { window.open(url,'_blank'); }
-    toast('👁️ Mostrando '+nombre+' guardado en Drive.');
-  }catch(e){ if(win)win.close(); toast('❌ No se pudo abrir el PDF guardado: '+e.message); }
+    const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    mostrarPdfEnCuadro(nombre,url);
+  }catch(e){toast('❌ No se pudo abrir el PDF guardado: '+e.message);}
 }
 
 /* GUARDAR: guarda solo esa tarjeta con su nomenclatura */
@@ -593,9 +631,14 @@ function renderBusqueda(){
         ? `<button class="btn btn-green" style="padding:6px 12px" onclick="continuarLote('${le}','${ne}')">▶️ Continuar cargando</button>`
         : '<span style="color:#7fe39a;font-size:12px;font-weight:600">✅ Completo</span>';
     const btnRen=`<button class="btn btn-cyan" style="padding:6px 12px;margin-right:6px" onclick="renombrarLoteUI('${le}')">✏️ Renombrar</button>`;
-    return `<tr><td><b>${l.lote}</b></td><td>${l.nit}</td><td>${pill}</td><td>${chips}</td><td>${l.fecha}</td><td style="white-space:nowrap">${btnRen}${btn}</td></tr>`;
+    const btnDel=`<button class="btn btn-ghost" style="padding:6px 12px;margin-left:6px" onclick="eliminarLoteUI('${le}')">🗑️ Eliminar</button>`;
+    return `<tr><td style="text-align:center"><input type="checkbox" class="chk-lote" value="${le}" style="width:16px;height:16px;accent-color:var(--cyan)"></td><td><b>${l.lote}</b></td><td>${l.nit}</td><td>${pill}</td><td>${chips}</td><td>${l.fecha}</td><td style="white-space:nowrap">${btnRen}${btn}${btnDel}</td></tr>`;
   }).join('');
-  cont.innerHTML=`<table><thead><tr><th>Lote</th><th>NIT</th><th>Estado</th><th>Documentos (✓ cargado / ⏳ pendiente)</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>`;
+  cont.innerHTML=`<table><thead><tr><th style="text-align:center"><input type="checkbox" id="chkAll" style="width:16px;height:16px;accent-color:var(--cyan)"></th><th>Lote</th><th>NIT</th><th>Estado</th><th>Documentos (✓ cargado / ⏳ pendiente)</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const chkAll=$('#chkAll');
+  if(chkAll) chkAll.addEventListener('change',()=>{document.querySelectorAll('#tablaBusqueda .chk-lote').forEach(c=>c.checked=chkAll.checked);updateSelCount();});
+  document.querySelectorAll('#tablaBusqueda .chk-lote').forEach(c=>c.addEventListener('change',updateSelCount));
+  updateSelCount();
 }
 window.continuarLote=function(lote,nit){
   $('#cfgLote').value=lote;
@@ -607,6 +650,79 @@ window.continuarLote=function(lote,nit){
   toast('▶️ Continuando lote '+lote+'. Carga los documentos PENDIENTES y pulsa Guardar.');
   if(driveOn) refrescarEstadoDesdeDrive(lote);
 };
+
+/* ---------- ELIMINAR CARPETA (lote) ---------- */
+window.eliminarLoteUI=async function(lote){
+  const ok=await uiConfirm({
+    title:'🗑️ Eliminar carpeta',
+    msg:'¿Seguro que quieres eliminar la carpeta del lote <b>"'+lote+'"</b>?<br><br>Se enviará a la <b>papelera de Google Drive</b> con todos sus PDF (se puede recuperar desde la papelera de Drive) y se quitará de la lista.',
+    buttons:[{text:'Sí, eliminar',value:true,cls:'btn-green'},{text:'Cancelar',value:false,cls:'btn-ghost'}]
+  });
+  if(!ok) return;
+  toast('⏳ Eliminando "'+lote+'"...');
+  try{
+    if(driveOn){
+      const root=await ensureFevRoot();
+      const fid=await findFolder(String(lote),root);
+      if(fid){ await driveFetch('https://www.googleapis.com/drive/v3/files/'+fid+'?fields=id',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({trashed:true})}); }
+    }
+    let data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
+    data=data.filter(l=>String(l.lote)!==String(lote));
+    localStorage.setItem(LS_LOTES,JSON.stringify(data));
+    try{const store=driveIdStore(); if(store[lote]){delete store[lote];saveDriveIdStore(store);}}catch(e){}
+    renderBusqueda();actualizarTotal();
+    toast('🗑️ Carpeta "'+lote+'" eliminada'+(driveOn?' (enviada a la papelera de Drive)':'')+'.');
+  }catch(e){toast('❌ No se pudo eliminar: '+e.message);}
+};
+
+/* ---------- CUENTA DE COBRO POR SELECCIÓN MÚLTIPLE (vista Búsqueda) ---------- */
+function lotesSeleccionados(){
+  return [...document.querySelectorAll('#tablaBusqueda .chk-lote:checked')].map(c=>c.value);
+}
+function updateSelCount(){
+  const n=document.querySelectorAll('#tablaBusqueda .chk-lote:checked').length;
+  const el=$('#selCount'); if(el) el.textContent=n+' seleccionado'+(n===1?'':'s');
+}
+window.updateSelCount=updateSelCount;
+async function crearCCDesde(lotes){
+  if(!lotes||!lotes.length){toast('⚠️ Marca al menos una carpeta (columna ☑️).');return;}
+  const num=await uiPrompt({title:'🧾 Nueva cuenta de cobro',msg:'Se incluirán <b>'+lotes.length+'</b> lote(s):<br><b>'+lotes.join(', ')+'</b><br><br>Escribe el N° de la cuenta de cobro:',value:''});
+  if(num===null) return;
+  const n=String(num).trim(); if(!n){toast('⏹️ Sin número, cancelado.');return;}
+  const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
+  data.unshift({num:n,lote:lotes.join(', '),valor:'',fecha:new Date().toLocaleString('es-CO')});
+  localStorage.setItem(LS_CC,JSON.stringify(data));
+  renderCuentas();
+  toast('✅ Cuenta de cobro "'+n+'" creada con '+lotes.length+' lote(s).');
+}
+if($('#btnCCDesdeSel')) $('#btnCCDesdeSel').addEventListener('click',()=>crearCCDesde(lotesSeleccionados()));
+if($('#btnPlantillaCC')) $('#btnPlantillaCC').addEventListener('click',e=>{
+  e.preventDefault();
+  if(typeof XLSX==='undefined'){toast('❌ El lector de Excel aún carga, intenta en 5 segundos.');return;}
+  const ws=XLSX.utils.aoa_to_sheet([['LOTE'],['1'],['2']]);
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'CUENTA DE COBRO');
+  XLSX.writeFile(wb,'plantilla_cuenta_de_cobro.xlsx');
+});
+if($('#ccExcel')) $('#ccExcel').addEventListener('change',async function(){
+  const file=this.files&&this.files[0]; this.value='';
+  if(!file) return;
+  if(typeof XLSX==='undefined'){toast('❌ El lector de Excel aún carga, intenta en 5 segundos.');return;}
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const filas=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});
+    const lotes=[];
+    filas.forEach((row,i)=>{
+      const a=(row[0]!=null?String(row[0]).trim():'');
+      if(!a) return;
+      if(i===0 && /lote/i.test(a)) return;
+      lotes.push(a);
+    });
+    if(!lotes.length){toast('⚠️ El Excel no tiene lotes en la columna LOTE.');return;}
+    await crearCCDesde(lotes);
+  }catch(e){toast('❌ No se pudo leer el Excel: '+e.message);}
+});
 
 /* ---------- RENOMBRAR CARPETA (lote) ---------- */
 function reemplazarLoteEnNombre(nombre,oldLote,newLote){
