@@ -296,7 +296,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v2.4 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v2.5 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -747,9 +747,8 @@ function updateSelCount(){
 window.updateSelCount=updateSelCount;
 async function crearCCDesde(lotes){
   if(!lotes||!lotes.length){toast('⚠️ Marca al menos una carpeta (columna ☑️).');return;}
-  const existeCC=JSON.parse(localStorage.getItem(LS_CC)||'[]');
-  const sugerido=existeCC.length?String(siguienteNumeroCC()):'';
-  const num=await uiPrompt({title:'🧾 Nueva cuenta de cobro',msg:'Se incluirán <b>'+lotes.length+'</b> lote(s):<br><b>'+lotes.join(', ')+'</b><br><br>N° de la cuenta de cobro'+(sugerido?' (consecutivo sugerido, puedes cambiarlo)':' (escribe el número con el que quieres empezar)')+':',value:sugerido});
+  const sugerido=String(siguienteNumeroCC());
+  const num=await uiPrompt({title:'🧾 Nueva cuenta de cobro',msg:'Se incluirán <b>'+lotes.length+'</b> lote(s):<br><b>'+lotes.join(', ')+'</b><br><br>N° consecutivo de la cuenta de cobro (puedes cambiarlo):',value:sugerido,okText:'Guardar',cancelText:'Cancelar'});
   if(num===null) return;
   const n=String(num).trim(); if(!n){toast('⏹️ Sin número, cancelado.');return;}
   const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
@@ -1285,37 +1284,47 @@ async function refrescarEstadoDesdeDrive(lote){
     toast('☁️ Consultado en Drive: '+cuenta+' de 6 documentos ya cargados.');
   }catch(e){toast('❌ No se pudo consultar Drive: '+e.message);}
 }
-/* Recorre TODOS los lotes de la lista, mira qué PDF ya existen en Google Drive
-   y marca como ✓ cargado lo que esté en Drive (sin borrar nada). Auto al abrir Búsqueda. */
+/* Recorre Google Drive, AGREGA al listado las carpetas que existan en Drive
+   y no estén en la lista, y marca como ✓ cargado lo que ya esté en Drive
+   (sin borrar nada). Se ejecuta solo al abrir Búsqueda o con el botón Actualizar. */
 let _sincroEnCurso=false;
 async function sincronizarBusquedaConDrive(){
   if(!driveOn || _sincroEnCurso) return;
-  let data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
-  if(!data.length) return;
   _sincroEnCurso=true;
   let root;
   try{ root=await ensureFevRoot(); }catch(e){ _sincroEnCurso=false; return; }
-  let cambios=false;
-  for(const l of data){
-    try{
-      const folderId=await findFolder(String(l.lote),root);
-      if(!folderId) continue;
-      const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name)&spaces=drive');
-      const j=await r.json();
-      const enDrive=(j.files||[]).map(f=>f.name);
-      l.docs=l.docs||[];
-      const have=new Set(l.docs.map(d=>d.tipo));
+  let data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
+  const SEP=String(sep()||'_');
+  let cambios=false, nuevas=0;
+  try{
+    /* 1) Todas las carpetas (lotes) que hay en Drive */
+    const rf=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and mimeType='application/vnd.google-apps.folder' and '"+root+"' in parents")+'&fields=files(id,name)&spaces=drive&pageSize=1000');
+    const jf=await rf.json();
+    const carpetas=jf.files||[];
+    for(const carp of carpetas){
+      /* archivos dentro de la carpeta */
+      let enDrive=[];
+      try{
+        const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+carp.id+"' in parents")+'&fields=files(id,name)&spaces=drive');
+        const j=await r.json(); enDrive=(j.files||[]).map(f=>f.name);
+      }catch(e){}
+      /* NIT detectado del nombre TIPO_NIT_LOTE.pdf */
+      let nitDet='';
+      for(const nm of enDrive){ const p=String(nm).replace(/\.pdf$/i,'').split(SEP); if(p.length>=3){ nitDet=p[1]; break; } }
+      let lote=data.find(l=>String(l.lote)===String(carp.name));
+      if(!lote){ lote={nit:nitDet,lote:carp.name,docs:[],fecha:new Date().toLocaleString('es-CO')}; data.unshift(lote); cambios=true; nuevas++; }
+      if(!lote.nit && nitDet){ lote.nit=nitDet; cambios=true; }
+      lote.docs=lote.docs||[];
+      const have=new Set(lote.docs.map(d=>d.tipo));
       DOC_TYPES.forEach(d=>{
-        const nombre=d.id+sep()+String(l.nit).trim()+sep()+String(l.lote)+'.pdf';
-        if(enDrive.includes(nombre) && !have.has(d.id)){
-          l.docs.push({tipo:d.id,nombre});
-          have.add(d.id);
-          cambios=true;
-        }
+        const encontrado=enDrive.find(n=>String(n).toUpperCase().startsWith((d.id+SEP).toUpperCase()));
+        if(encontrado && !have.has(d.id)){ lote.docs.push({tipo:d.id,nombre:encontrado}); have.add(d.id); cambios=true; }
       });
-    }catch(e){}
-  }
-  if(cambios){ localStorage.setItem(LS_LOTES,JSON.stringify(data)); renderBusqueda(); actualizarTotal(); toast('☁️ Lista actualizada con lo que ya está en Google Drive.'); }
+    }
+  }catch(e){}
+  if(cambios){ localStorage.setItem(LS_LOTES,JSON.stringify(data)); }
+  renderBusqueda(); actualizarTotal();
+  if(cambios) toast('☁️ Lista actualizada con Google Drive'+(nuevas?(' ('+nuevas+' carpeta(s) nueva(s))'):'')+'.');
   _sincroEnCurso=false;
 }
 async function subirLoteADrive(pdfMap,lote){
