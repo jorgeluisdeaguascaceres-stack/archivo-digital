@@ -141,12 +141,12 @@ tr:hover td{background:var(--panel2);}
     <!-- ================= DOCUMENTOS ================= -->
     <section class="view active" id="view-documentos">
       <div class="card-box">
-        <div class="sec-title">Sección 1 – Configuración de destino y datos</div>
-        <div class="grid-cfg">
-          <div class="field">
-            <label>Carpeta de destino</label>
-            <input id="cfgCarpeta" readonly placeholder="Haz clic en 'Elegir carpeta'" value="(sin carpeta elegida – se descargará un ZIP)">
-          </div>
+        <div class="sec-title">Sección 1 – Conexión a Google Drive y datos del lote</div>
+        <div class="btn-row" style="margin-bottom:14px">
+          <button class="btn btn-cyan" id="btnConectarDrive">☁️ Conectar con Google Drive</button>
+          <span class="badge" id="driveStatus">No conectado</span>
+        </div>
+        <div class="grid-cfg" style="grid-template-columns:1fr 1fr 1fr">
           <div class="field">
             <label>Nombre de la carpeta (lote)</label>
             <input id="cfgLote" value="1">
@@ -165,16 +165,11 @@ tr:hover td{background:var(--panel2);}
           </div>
         </div>
         <div class="btn-row">
-          <button class="btn btn-ghost" id="btnElegir">📁 Elegir carpeta</button>
-          <button class="btn btn-cyan" id="btnCrear">➕ Crear carpeta</button>
+          <button class="btn btn-cyan" id="btnCrear">➕ Crear carpeta del lote</button>
           <button class="btn btn-ghost" id="btnNuevoLote">🔄 Nuevo lote</button>
           <span class="badge" id="nombreEjemplo">CRC_819004318_1.pdf</span>
         </div>
         <div class="statusbar" id="statusbar">Continuando lote: <b>1</b> (0 de 6 documentos ya guardados)</div>
-        <div class="btn-row" style="margin-top:12px">
-          <button class="btn btn-cyan" id="btnConectarDrive">☁️ Conectar con Google Drive</button>
-          <span class="badge" id="driveStatus">No conectado</span>
-        </div>
         <div class="hint">Al conectar Google Drive, cada lote se sube solo a la carpeta <b>FACTURACION EVENTO</b>, dentro de una subcarpeta con el número del lote, con los PDF ya renombrados.</div>
       </div>
 
@@ -394,22 +389,14 @@ $('#cfgSep').addEventListener('change',updateStatus);
 $('#cfgNit').addEventListener('input',updateStatus);
 $('#cfgLote').addEventListener('input',updateStatus);
 
-$('#btnElegir').addEventListener('click',async()=>{
-  if(!window.showDirectoryPicker){toast('ℹ️ Tu navegador no permite elegir carpeta. Se descargará un ZIP. Usa Chrome/Edge para guardar directo en disco.');return;}
-  try{dirHandle=await window.showDirectoryPicker({mode:'readwrite'});
-    $('#cfgCarpeta').value=dirHandle.name+' (carpeta elegida)';
-    toast('✅ Carpeta elegida. Los lotes se guardarán ahí directamente.');
-  }catch(e){}
-});
-
 $('#btnCrear').addEventListener('click',async()=>{
   const lote=$('#cfgLote').value.trim();
   if(!lote){toast('⚠️ Escribe el nombre del lote.');return;}
-  if(dirHandle){
-    try{await dirHandle.getDirectoryHandle(lote,{create:true});
-      toast('✅ Carpeta del lote "'+lote+'" creada en disco.');
-    }catch(e){toast('⚠️ No se pudo crear la carpeta: '+e.message);}
-  }else{toast('ℹ️ No hay carpeta elegida: la carpeta del lote se creará dentro del ZIP al guardar.');}
+  if(driveOn){
+    try{const root=await ensureFevRoot();await ensureFolder(String(lote),root);
+      toast('✅ Carpeta del lote "'+lote+'" lista en Google Drive (FACTURACION EVENTO).');
+    }catch(e){toast('❌ No se pudo crear en Drive: '+e.message);}
+  }else{toast('⚠️ Primero conéctate a Google Drive con el botón ☁️ de arriba.');}
 });
 
 $('#btnNuevoLote').addEventListener('click',()=>{
