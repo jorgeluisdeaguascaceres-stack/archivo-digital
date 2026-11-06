@@ -257,7 +257,7 @@ tr:hover td{background:var(--panel2);}
   <div class="modal-acts" id="modalActs"></div>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v1.7 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v1.8 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -366,14 +366,38 @@ function wireCards(){
   $$('.btn-save').forEach(b=>b.addEventListener('click',()=>guardarDoc(b.dataset.tipo)));
 }
 
-/* VER: abre vista previa del PDF (unido) en una pestaña nueva */
+/* VER: muestra el PDF. Si la casilla tiene archivos cargados, muestra esos (unidos);
+   si está vacía, trae y muestra el PDF que YA está guardado en Google Drive para ese lote. */
 async function verDoc(tipo){
-  if(!slots[tipo].length){toast('⚠️ La casilla '+tipo+' no tiene archivos.');return;}
+  /* 1) Si hay archivos cargados en la casilla, se muestran esos */
+  if(slots[tipo].length){
+    try{
+      const bytes=await mergeSlot(tipo);
+      const blob=new Blob([bytes],{type:'application/pdf'});
+      window.open(URL.createObjectURL(blob),'_blank');
+    }catch(e){toast('❌ No se pudo abrir: '+e.message);}
+    return;
+  }
+  /* 2) Casilla vacía: intentamos traer el PDF ya guardado en Drive */
+  if(!driveOn){toast('⚠️ La casilla '+tipo+' no tiene archivos. Conéctate a Google Drive para ver el PDF guardado.');return;}
+  const lote=$('#cfgLote').value.trim();
+  if(!lote){toast('⚠️ Escribe el lote primero.');return;}
+  const nombre=nombreArchivo(tipo);
+  /* Abrimos la pestaña YA (dentro del clic) para que el navegador no la bloquee */
+  const win=window.open('','_blank');
+  if(win){try{win.document.write('<p style="font-family:sans-serif;padding:20px">Cargando '+nombre+' desde Google Drive...</p>');}catch(e){}}
   try{
-    const bytes=await mergeSlot(tipo);
+    const root=await ensureFevRoot();
+    const folderId=await findFolder(String(lote),root);
+    if(!folderId){ if(win)win.close(); toast('⚠️ El lote "'+lote+'" aún no existe en Drive.'); return; }
+    const fid=await findFile(nombre,folderId);
+    if(!fid){ if(win)win.close(); toast('⚠️ '+nombre+' aún no está guardado en Drive.'); return; }
+    const bytes=await descargarPdf(fid);
     const blob=new Blob([bytes],{type:'application/pdf'});
-    window.open(URL.createObjectURL(blob),'_blank');
-  }catch(e){toast('❌ No se pudo abrir: '+e.message);}
+    const url=URL.createObjectURL(blob);
+    if(win){ win.location=url; } else { window.open(url,'_blank'); }
+    toast('👁️ Mostrando '+nombre+' guardado en Drive.');
+  }catch(e){ if(win)win.close(); toast('❌ No se pudo abrir el PDF guardado: '+e.message); }
 }
 
 /* GUARDAR: guarda solo esa tarjeta con su nomenclatura */
@@ -446,6 +470,7 @@ $('#btnCrear').addEventListener('click',async()=>{
       const root=await ensureFevRoot();
       const existe=await findFolder(String(lote),root);
       if(!existe){ await createFolder(String(lote),root); toast('✅ Carpeta del lote "'+lote+'" creada en Google Drive.'); }
+      else{ await uiAlert('📁 Carpeta ya existe','La carpeta del lote <b>"'+lote+'"</b> ya está creada en Google Drive. No se creó otra.'); }
       await refrescarEstadoDesdeDrive(lote);
     }catch(e){toast('❌ No se pudo crear en Drive: '+e.message);}
   }else{toast('⚠️ Primero conéctate a Google Drive con el botón ☁️ de arriba.');}
