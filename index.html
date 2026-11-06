@@ -236,7 +236,7 @@ tr:hover td{background:var(--panel2);}
       <div class="card-box">
         <div class="sec-title">Cuentas de cobro</div>
         <div class="grid-cfg" style="grid-template-columns:1fr 1fr 1fr">
-          <div class="field"><label>N° cuenta de cobro</label><input id="ccNum" placeholder="Ej: CC-001"></div>
+          <div class="field"><label>N° cuenta de cobro</label><input id="ccNum" placeholder="N° consecutivo (automático)"></div>
           <div class="field"><label>Lote asociado</label><input id="ccLote" placeholder="Ej: 1"></div>
           <div class="field"><label>Valor</label><input id="ccValor" placeholder="$"></div>
         </div>
@@ -283,7 +283,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v2.1 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v2.2 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -726,7 +726,8 @@ function updateSelCount(){
 window.updateSelCount=updateSelCount;
 async function crearCCDesde(lotes){
   if(!lotes||!lotes.length){toast('⚠️ Marca al menos una carpeta (columna ☑️).');return;}
-  const num=await uiPrompt({title:'🧾 Nueva cuenta de cobro',msg:'Se incluirán <b>'+lotes.length+'</b> lote(s):<br><b>'+lotes.join(', ')+'</b><br><br>Escribe el N° de la cuenta de cobro:',value:''});
+  const sugerido=String(siguienteNumeroCC());
+  const num=await uiPrompt({title:'🧾 Nueva cuenta de cobro',msg:'Se incluirán <b>'+lotes.length+'</b> lote(s):<br><b>'+lotes.join(', ')+'</b><br><br>N° consecutivo de la cuenta de cobro (puedes cambiarlo):',value:sugerido});
   if(num===null) return;
   const n=String(num).trim(); if(!n){toast('⏹️ Sin número, cancelado.');return;}
   const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
@@ -857,6 +858,16 @@ function wireRenombreMasivo(){
 wireRenombreMasivo();
 
 /* ---------- CUENTAS DE COBRO ---------- */
+/* Número consecutivo simple (como en el sistema general: 9,10,11...18,19...) */
+function siguienteNumeroCC(){
+  const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
+  let max=0;
+  data.forEach(c=>{
+    const n=parseInt(String(c.num).replace(/\D/g,''),10);
+    if(!isNaN(n) && n>max) max=n;
+  });
+  return max+1;
+}
 $('#btnAddCC').addEventListener('click',()=>{
   const num=$('#ccNum').value.trim(),lote=$('#ccLote').value.trim(),valor=$('#ccValor').value.trim();
   if(!num){toast('⚠️ Escribe el N° de cuenta de cobro.');return;}
@@ -867,6 +878,7 @@ $('#btnAddCC').addEventListener('click',()=>{
   renderCuentas();toast('✅ Cuenta de cobro registrada.');
 });
 function renderCuentas(){
+  const campo=$('#ccNum'); if(campo && !campo.value.trim()) campo.value=String(siguienteNumeroCC());
   const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
   const cont=$('#tablaCuentas');
   if(!data.length){cont.innerHTML='<div class="empty">No hay cuentas de cobro registradas.</div>';return;}
