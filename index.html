@@ -76,6 +76,7 @@ body{background:var(--bg);color:var(--txt);font-size:14px;}
 .doc-actions .btn{width:100%;justify-content:center;padding:5px 4px;font-size:10px;}
 .filestate{margin-top:10px;font-size:11px;color:var(--muted);}
 .filestate.ok{color:#7fe39a;}
+.filestate.warn{color:var(--amber);}
 .filelist{margin-top:8px;font-size:11px;}
 .filelist .f{display:flex;justify-content:space-between;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;margin-top:4px;}
 .filelist .f button{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;}
@@ -282,7 +283,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v1.9 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v2.0 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -475,8 +476,10 @@ function removeFile(tipo,i){slots[tipo].splice(i,1);renderSlot(tipo);updateStatu
 function renderSlot(tipo){
   const st=$(`[data-state="${tipo}"]`);const ls=$(`[data-list="${tipo}"]`);
   const n=slots[tipo].length;
-  if(n===0){st.textContent='Sin archivos';st.classList.remove('ok');ls.innerHTML='';return;}
-  st.textContent=(n===1?'1 archivo listo':n+' archivos (se unirán en 1)');st.classList.add('ok');
+  if(n===0){st.textContent='Sin archivos';st.classList.remove('ok');st.classList.remove('warn');ls.innerHTML='';return;}
+  /* Cargado localmente pero AÚN NO guardado en Drive: NO va en verde, va en ámbar */
+  st.textContent=(n===1?'1 archivo listo — SIN guardar aún':n+' archivos (se unirán en 1) — SIN guardar aún');
+  st.classList.remove('ok');st.classList.add('warn');
   ls.innerHTML=slots[tipo].map((f,i)=>`<div class="f"><span>${i+1}. ${f.name}</span><button onclick="removeFile('${tipo}',${i})">✕</button></div>`).join('');
 }
 window.removeFile=removeFile;
@@ -485,7 +488,7 @@ window.removeFile=removeFile;
 function markCardSaved(tipo,nombre){
   const st=document.querySelector('[data-state="'+tipo+'"]');
   const ls=document.querySelector('[data-list="'+tipo+'"]');
-  if(st){st.innerHTML='✅ Guardado como: <b>'+nombre+'</b>';st.classList.add('ok');}
+  if(st){st.innerHTML='✅ Guardado como: <b>'+nombre+'</b>';st.classList.remove('warn');st.classList.add('ok');}
   if(ls){ls.innerHTML='<div class="f" style="border-color:var(--green);color:#7fe39a"><span>📄 '+nombre+'</span><span>✓ en Drive</span></div>';}
 }
 window.markCardSaved=markCardSaved;
@@ -564,16 +567,24 @@ $('#btnGuardarLote').addEventListener('click',async()=>{
     }
     if(driveOn){
       const lf=await ensureLoteFolder(lote);
-      const modo=await pedirModoSiExiste(lf,Object.keys(pdfMap));
-      if(modo==='cancelar'){
-        toast('⏹️ Cancelado.');
-        $('#btnGuardarLote').disabled=false;$('#btnGuardarLote').innerHTML='💾 Guardar lote (6 documentos)';
-        return;
+      /* Guardado masivo = SOLO los documentos que AÚN NO están en Drive.
+         Los que ya están guardados se OMITEN (no se re-suben ni se pregunta nada). */
+      const nuevos=[], yaGuardados=[];
+      for(const g of generados){
+        const existe=await findFile(g.nombre,lf);
+        if(existe){ yaGuardados.push(g); } else { nuevos.push(g); }
       }
-      let n=0; for(const nombre in pdfMap){await uploadPdfCached(lote,nombre,pdfMap[nombre],lf,modo);n++;}
-      generados.forEach(g=>markCardSaved(g.tipo,g.nombre));
+      let n=0;
+      for(const g of nuevos){ await uploadPdfCached(lote,g.nombre,pdfMap[g.nombre],lf,'crear'); markCardSaved(g.tipo,g.nombre); n++; }
+      /* los que ya estaban guardados también quedan en verde */
+      yaGuardados.forEach(g=>markCardSaved(g.tipo,g.nombre));
       await refrescarEstadoDesdeDrive(lote);
-      toast('☁️ Lote '+lote+' guardado en Drive ('+n+' PDF, '+(modo==='anexar'?'anexados':modo==='reemplazar'?'reemplazados':'nuevos')+').');
+      if(n===0){
+        toast('ℹ️ Nada nuevo que guardar: los '+yaGuardados.length+' documento(s) ya estaban en Drive.');
+      }else{
+        const omit = yaGuardados.length?(' · '+yaGuardados.length+' ya estaba(n) y no se tocó(aron)'):'';
+        toast('☁️ Lote '+lote+': '+n+' documento(s) nuevo(s) guardado(s)'+omit+'.');
+      }
     }else if(dirHandle){
       const loteDir=await dirHandle.getDirectoryHandle(lote,{create:true});
       for(const nombre in pdfMap){
