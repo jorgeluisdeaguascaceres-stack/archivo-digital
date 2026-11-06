@@ -174,7 +174,7 @@ tr:hover td{background:var(--panel2);}
         <div class="grid-cfg" style="grid-template-columns:1fr 1fr 1fr">
           <div class="field">
             <label>Nombre de la carpeta (lote)</label>
-            <input id="cfgLote" value="1">
+            <input id="cfgLote" value="" placeholder="Escribe el N° del lote">
           </div>
           <div class="field">
             <label>NIT de la IPS</label>
@@ -195,7 +195,7 @@ tr:hover td{background:var(--panel2);}
           <button class="btn btn-ghost" id="btnNuevoLote">🔄 Nuevo lote</button>
           <span class="badge" id="nombreEjemplo">CRC_819004318_1.pdf</span>
         </div>
-        <div class="statusbar" id="statusbar">Continuando lote: <b>1</b> (0 de 6 documentos ya guardados)</div>
+        <div class="statusbar" id="statusbar">Escribe el N° del lote para comenzar.</div>
         <div class="hint">Al conectar Google Drive, cada lote se sube solo a la carpeta <b>FACTURACION EVENTO</b>, dentro de una subcarpeta con el número del lote, con los PDF ya renombrados.</div>
       </div>
 
@@ -218,6 +218,7 @@ tr:hover td{background:var(--panel2);}
           <div class="field" style="max-width:260px"><input id="buscaGlobal" placeholder="Escribe el lote y pulsa Enter..."></div>
           <label class="btn btn-ghost" style="cursor:pointer;margin:0">📄 Cambio masivo (Excel)<input type="file" id="renombreExcel" accept=".xlsx,.xls" style="display:none"></label>
           <button class="btn btn-ghost" id="btnPlantillaExcel">⬇️ Plantilla</button>
+          <button class="btn btn-cyan" id="btnSincroDrive">🔄 Actualizar con Drive</button>
         </div>
         <div class="hint" style="margin:8px 0 2px"><b>Enter</b> = trae justo esa carpeta. <b>✏️ Renombrar</b> cambia el nombre en la app y en Google Drive. <b>Cambio masivo (Excel)</b>: columna A = nombre ACTUAL, columna B = nombre NUEVO.</div>
         <div class="btn-row" style="margin:10px 0 2px">
@@ -283,7 +284,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v2.2 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v2.3 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -347,7 +348,7 @@ $$('.side-item').forEach(it=>it.addEventListener('click',()=>{
   it.classList.add('active');
   $$('.view').forEach(v=>v.classList.remove('active'));
   $('#view-'+it.dataset.view).classList.add('active');
-  if(it.dataset.view==='busqueda') renderBusqueda();
+  if(it.dataset.view==='busqueda'){ renderBusqueda(); if(driveOn) sincronizarBusquedaConDrive(); }
   if(it.dataset.view==='cuentas') renderCuentas();
   if(it.dataset.view==='configuraciones') renderUsuarios();
 }));
@@ -495,7 +496,10 @@ window.markCardSaved=markCardSaved;
 
 function updateStatus(){
   const llenos=DOC_TYPES.filter(d=>slots[d.id].length>0).length;
-  $('#statusbar').innerHTML=`Continuando lote: <b>${$('#cfgLote').value}</b> (${llenos} de 6 documentos ya cargados)`;
+  const lv=$('#cfgLote').value.trim();
+  $('#statusbar').innerHTML= lv
+    ? `Continuando lote: <b>${lv}</b> (${llenos} de 6 documentos ya cargados)`
+    : 'Escribe el N° del lote para comenzar.';
   $('#nombreEjemplo').textContent=nombreArchivo('CRC');
 }
 /* ---------- CONFIG BOTONES ---------- */
@@ -650,6 +654,11 @@ function actualizarTotal(){
 let busqExacta=false;
 $('#buscaGlobal').addEventListener('input',()=>{busqExacta=false;renderBusqueda();});
 $('#buscaGlobal').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();busqExacta=true;renderBusqueda();}});
+(function(){const b=$('#btnSincroDrive'); if(b) b.addEventListener('click',async()=>{
+  if(!driveOn){toast('⚠️ Conéctate a Google Drive para actualizar.');return;}
+  toast('☁️ Revisando Google Drive...');
+  await sincronizarBusquedaConDrive();
+});})();
 function renderBusqueda(){
   const q=($('#buscaGlobal')?.value||'').trim().toLowerCase();
   let data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
@@ -726,8 +735,9 @@ function updateSelCount(){
 window.updateSelCount=updateSelCount;
 async function crearCCDesde(lotes){
   if(!lotes||!lotes.length){toast('⚠️ Marca al menos una carpeta (columna ☑️).');return;}
-  const sugerido=String(siguienteNumeroCC());
-  const num=await uiPrompt({title:'🧾 Nueva cuenta de cobro',msg:'Se incluirán <b>'+lotes.length+'</b> lote(s):<br><b>'+lotes.join(', ')+'</b><br><br>N° consecutivo de la cuenta de cobro (puedes cambiarlo):',value:sugerido});
+  const existeCC=JSON.parse(localStorage.getItem(LS_CC)||'[]');
+  const sugerido=existeCC.length?String(siguienteNumeroCC()):'';
+  const num=await uiPrompt({title:'🧾 Nueva cuenta de cobro',msg:'Se incluirán <b>'+lotes.length+'</b> lote(s):<br><b>'+lotes.join(', ')+'</b><br><br>N° de la cuenta de cobro'+(sugerido?' (consecutivo sugerido, puedes cambiarlo)':' (escribe el número con el que quieres empezar)')+':',value:sugerido});
   if(num===null) return;
   const n=String(num).trim(); if(!n){toast('⏹️ Sin número, cancelado.');return;}
   const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
@@ -878,7 +888,11 @@ $('#btnAddCC').addEventListener('click',()=>{
   renderCuentas();toast('✅ Cuenta de cobro registrada.');
 });
 function renderCuentas(){
-  const campo=$('#ccNum'); if(campo && !campo.value.trim()) campo.value=String(siguienteNumeroCC());
+  const campo=$('#ccNum');
+  if(campo && !campo.value.trim()){
+    const dcc=JSON.parse(localStorage.getItem(LS_CC)||'[]');
+    if(dcc.length) campo.value=String(siguienteNumeroCC());
+  }
   const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
   const cont=$('#tablaCuentas');
   if(!data.length){cont.innerHTML='<div class="empty">No hay cuentas de cobro registradas.</div>';return;}
@@ -1171,6 +1185,39 @@ async function refrescarEstadoDesdeDrive(lote){
     if(sb) sb.innerHTML='Lote <b>'+lote+'</b>: <b>'+cuenta+' de 6</b> documentos ya están en Google Drive.';
     toast('☁️ Consultado en Drive: '+cuenta+' de 6 documentos ya cargados.');
   }catch(e){toast('❌ No se pudo consultar Drive: '+e.message);}
+}
+/* Recorre TODOS los lotes de la lista, mira qué PDF ya existen en Google Drive
+   y marca como ✓ cargado lo que esté en Drive (sin borrar nada). Auto al abrir Búsqueda. */
+let _sincroEnCurso=false;
+async function sincronizarBusquedaConDrive(){
+  if(!driveOn || _sincroEnCurso) return;
+  let data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
+  if(!data.length) return;
+  _sincroEnCurso=true;
+  let root;
+  try{ root=await ensureFevRoot(); }catch(e){ _sincroEnCurso=false; return; }
+  let cambios=false;
+  for(const l of data){
+    try{
+      const folderId=await findFolder(String(l.lote),root);
+      if(!folderId) continue;
+      const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name)&spaces=drive');
+      const j=await r.json();
+      const enDrive=(j.files||[]).map(f=>f.name);
+      l.docs=l.docs||[];
+      const have=new Set(l.docs.map(d=>d.tipo));
+      DOC_TYPES.forEach(d=>{
+        const nombre=d.id+sep()+String(l.nit).trim()+sep()+String(l.lote)+'.pdf';
+        if(enDrive.includes(nombre) && !have.has(d.id)){
+          l.docs.push({tipo:d.id,nombre});
+          have.add(d.id);
+          cambios=true;
+        }
+      });
+    }catch(e){}
+  }
+  if(cambios){ localStorage.setItem(LS_LOTES,JSON.stringify(data)); renderBusqueda(); actualizarTotal(); toast('☁️ Lista actualizada con lo que ya está en Google Drive.'); }
+  _sincroEnCurso=false;
 }
 async function subirLoteADrive(pdfMap,lote){
   const loteFolder=await ensureLoteFolder(lote);
