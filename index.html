@@ -6,6 +6,7 @@
 <title>ARCHIVO DIGITAL – Gestión Documental</title>
 <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 :root{
   --bg:#0b141e; --panel:#172433; --panel2:#1f3246; --line:#2a3f55;
@@ -170,6 +171,11 @@ tr:hover td{background:var(--panel2);}
           <span class="badge" id="nombreEjemplo">CRC_819004318_1.pdf</span>
         </div>
         <div class="statusbar" id="statusbar">Continuando lote: <b>1</b> (0 de 6 documentos ya guardados)</div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn btn-cyan" id="btnConectarDrive">☁️ Conectar con Google Drive</button>
+          <span class="badge" id="driveStatus">No conectado</span>
+        </div>
+        <div class="hint">Al conectar Google Drive, cada lote se sube solo a la carpeta <b>FACTURACION EVENTO</b>, dentro de una subcarpeta con el número del lote, con los PDF ya renombrados.</div>
       </div>
 
       <div class="card-box">
@@ -246,7 +252,7 @@ tr:hover td{background:var(--panel2);}
 </div>
 </div><!-- /#app -->
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v1.0</div>
+<div class="verbadge">ARCHIVO DIGITAL v1.1 · ☁️ DRIVE</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -338,7 +344,12 @@ async function guardarDoc(tipo){
   if(!nit||!lote){toast('⚠️ Falta NIT o lote.');return;}
   try{
     const bytes=await mergeSlot(tipo);const nombre=nombreArchivo(tipo);
-    if(dirHandle){
+    if(driveOn){
+      const root=await ensureFevRoot();
+      const lf=await ensureFolder(String(lote),root);
+      await uploadPdf(nombre,bytes,lf);
+      toast('☁️ '+nombre+' subido a Google Drive (FACTURACION EVENTO / '+lote+').');
+    }else if(dirHandle){
       const loteDir=await dirHandle.getDirectoryHandle(lote,{create:true});
       const fh=await loteDir.getFileHandle(nombre,{create:true});
       const w=await fh.createWritable();await w.write(bytes);await w.close();
@@ -443,7 +454,10 @@ $('#btnGuardarLote').addEventListener('click',async()=>{
       pdfMap[nombreArchivo(d.id)]=bytes;
       generados.push({tipo:d.id,nombre:nombreArchivo(d.id),paginas:0});
     }
-    if(dirHandle){
+    if(driveOn){
+      const n=await subirLoteADrive(pdfMap,lote);
+      toast('☁️ Lote '+lote+' guardado en Google Drive → FACTURACION EVENTO / '+lote+' ('+n+' PDF).');
+    }else if(dirHandle){
       const loteDir=await dirHandle.getDirectoryHandle(lote,{create:true});
       for(const nombre in pdfMap){
         const fh=await loteDir.getFileHandle(nombre,{create:true});
@@ -576,8 +590,122 @@ function renderUsuarios(){
 }
 window.delUser=i=>{const u=getUsers();u.splice(i,1);saveUsers(u);renderUsuarios();toast('🗑️ Usuario eliminado.');};
 
+/* ================= GOOGLE DRIVE ================= */
+const GCLIENT_ID='523064756999-mgtbvhnh32puucqh13canqn67lq4dogn.apps.googleusercontent.com';
+const DRIVE_SCOPE='openid email https://www.googleapis.com/auth/drive.file';
+const LS_FEVID='archivo_digital_fev_folder_id';
+let tokenClient=null, gToken=null, gTokenExp=0, gEmail=null, driveOn=false;
+let _tokRes=null,_tokRej=null;
+
+function gisReady(){return typeof google!=='undefined' && google.accounts && google.accounts.oauth2;}
+function initDrive(){
+  if(!gisReady()){setTimeout(initDrive,400);return;}
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:GCLIENT_ID, scope:DRIVE_SCOPE,
+    callback:(resp)=>{
+      if(resp && resp.error){ if(_tokRej)_tokRej(new Error(resp.error)); _tokRes=_tokRej=null; return; }
+      gToken=resp.access_token;
+      gTokenExp=Date.now()+((resp.expires_in?resp.expires_in:3300)*1000)-60000;
+      if(_tokRes)_tokRes(gToken); _tokRes=_tokRej=null;
+    }
+  });
+  updateDriveUI();
+}
+function getToken(interactive){
+  return new Promise((resolve,reject)=>{
+    if(gToken && Date.now()<gTokenExp){resolve(gToken);return;}
+    if(!tokenClient){reject(new Error('Google todavía está cargando. Espera 5 segundos y vuelve a intentar.'));return;}
+    _tokRes=resolve;_tokRej=reject;
+    tokenClient.requestAccessToken({prompt:interactive?'consent':''});
+  });
+}
+async function fetchEmail(){
+  try{
+    const r=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+gToken}});
+    if(r.ok){const j=await r.json();gEmail=j.email||null;}
+  }catch(e){}
+}
+async function conectarDrive(){
+  try{
+    await getToken(true);
+    await fetchEmail();
+    driveOn=true; updateDriveUI();
+    toast('✅ Conectado a Google Drive'+(gEmail?' ('+gEmail+')':''));
+  }catch(e){toast('❌ No se pudo conectar: '+e.message);}
+}
+function updateDriveUI(){
+  const b=$('#btnConectarDrive'),s=$('#driveStatus');
+  if(!b||!s)return;
+  if(driveOn){b.textContent='☁️ Reconectar Google Drive';s.textContent='Conectado'+(gEmail?': '+gEmail:'');s.style.color='#7fe39a';s.style.borderColor='var(--green)';}
+  else{b.textContent='☁️ Conectar con Google Drive';s.textContent='No conectado';s.style.color='';s.style.borderColor='';}
+}
+async function driveFetch(url,opts){
+  const t=await getToken(false);
+  opts=opts||{}; opts.headers=opts.headers||{};
+  opts.headers['Authorization']='Bearer '+t;
+  const r=await fetch(url,opts);
+  if(!r.ok){const txt=await r.text();throw new Error('Drive '+r.status+': '+txt.slice(0,140));}
+  return r;
+}
+async function findFolder(name,parent){
+  let q="mimeType='application/vnd.google-apps.folder' and trashed=false and name='"+String(name).replace(/'/g,"\\'")+"'";
+  if(parent)q+=" and '"+parent+"' in parents";
+  const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name)&spaces=drive');
+  const j=await r.json();return (j.files&&j.files[0])?j.files[0].id:null;
+}
+async function createFolder(name,parent){
+  const meta={name:String(name),mimeType:'application/vnd.google-apps.folder'};
+  if(parent)meta.parents=[parent];
+  const r=await driveFetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(meta)});
+  const j=await r.json();return j.id;
+}
+async function ensureFolder(name,parent){
+  let id=await findFolder(name,parent);
+  if(!id)id=await createFolder(name,parent);
+  return id;
+}
+async function ensureFevRoot(){
+  let id=localStorage.getItem(LS_FEVID);
+  if(id){
+    try{const r=await driveFetch('https://www.googleapis.com/drive/v3/files/'+id+'?fields=id,trashed');const j=await r.json();if(j.id&&!j.trashed)return id;}catch(e){}
+  }
+  id=await ensureFolder('FACTURACION EVENTO',null);
+  localStorage.setItem(LS_FEVID,id);
+  return id;
+}
+async function findFile(name,parent){
+  let q="trashed=false and name='"+String(name).replace(/'/g,"\\'")+"' and '"+parent+"' in parents";
+  const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name)&spaces=drive');
+  const j=await r.json();return (j.files&&j.files[0])?j.files[0].id:null;
+}
+async function uploadPdf(name,bytes,parent){
+  const blob=new Blob([bytes],{type:'application/pdf'});
+  const existing=await findFile(name,parent);
+  if(existing){
+    await driveFetch('https://www.googleapis.com/upload/drive/v3/files/'+existing+'?uploadType=media&fields=id',{method:'PATCH',headers:{'Content-Type':'application/pdf'},body:blob});
+    return existing;
+  }
+  const meta={name:String(name),parents:[parent]};
+  const boundary='adf'+Date.now()+Math.random().toString(16).slice(2);
+  const enc=new TextEncoder();
+  const pre=enc.encode('--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/pdf\r\n\r\n');
+  const post=enc.encode('\r\n--'+boundary+'--');
+  const r=await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body:new Blob([pre,blob,post])});
+  const j=await r.json();return j.id;
+}
+async function subirLoteADrive(pdfMap,lote){
+  const root=await ensureFevRoot();
+  const loteFolder=await ensureFolder(String(lote),root);
+  let n=0;
+  for(const nombre in pdfMap){await uploadPdf(nombre,pdfMap[nombre],loteFolder);n++;}
+  return n;
+}
+
 /* ---------- INIT ---------- */
 buildCards();
+updateDriveUI();
+initDrive();
+if($('#btnConectarDrive'))$('#btnConectarDrive').addEventListener('click',conectarDrive);
 updateStatus();
 actualizarTotal();
 $('#loginUser').focus();
