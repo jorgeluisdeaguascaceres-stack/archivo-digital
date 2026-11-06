@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCHIVO DIGITAL – Gestión Documental</title>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --bg:#0b141e; --panel:#172433; --panel2:#1f3246; --line:#2a3f55;
+  --cyan:#00a0dc; --cyan2:#33b5e5; --txt:#ffffff; --muted:#9fb3c8;
+  --green:#28a745; --red:#e74c3c; --amber:#f1b53d;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif;}
+body{background:var(--bg);color:var(--txt);font-size:14px;}
+/* HEADER */
+.topbar{display:flex;align-items:center;justify-content:space-between;background:#0b141e;border-bottom:1px solid var(--line);padding:10px 18px;position:sticky;top:0;z-index:50;}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:.5px;}
+.brand .dot{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--cyan),#0066aa);display:flex;align-items:center;justify-content:center;font-size:15px;}
+.nav{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;flex:1;margin:0 16px;}
+.nav a{color:var(--muted);text-decoration:none;font-size:12px;padding:6px 8px;border-radius:6px;white-space:nowrap;}
+.nav a:hover{background:var(--panel);color:#fff;}
+.nav a.active{color:var(--cyan2);border-bottom:2px solid var(--cyan);border-radius:0;}
+.user{display:flex;align-items:center;gap:10px;}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00a0dc,#004c80);display:flex;align-items:center;justify-content:center;font-weight:700;}
+.user .uinfo{text-align:right;line-height:1.1;}
+.user .uinfo b{font-size:12px;}
+.user .uinfo small{color:var(--muted);font-size:10px;}
+.logout{background:var(--red);color:#fff;border:none;padding:7px 12px;border-radius:7px;cursor:pointer;font-size:12px;}
+/* LAYOUT */
+.layout{display:flex;min-height:calc(100vh - 56px);}
+.sidebar{width:210px;background:#0b141e;border-right:1px solid var(--line);padding:16px 10px;flex-shrink:0;}
+.side-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:9px;color:var(--muted);cursor:pointer;margin-bottom:6px;font-weight:600;}
+.side-item:hover{background:var(--panel);color:#fff;}
+.side-item.active{background:var(--cyan);color:#fff;}
+.side-item .ic{font-size:16px;}
+.main{flex:1;padding:22px;overflow:auto;}
+.view{display:none;}
+.view.active{display:block;}
+</style>
+<style>
+.card-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:18px;}
+.sec-title{font-size:13px;font-weight:800;letter-spacing:.8px;color:var(--cyan2);margin-bottom:14px;text-transform:uppercase;}
+.grid-cfg{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:14px;}
+@media(max-width:900px){.grid-cfg{grid-template-columns:1fr 1fr;}}
+.field label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:600;}
+.field input,.field select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:#fff;padding:9px 11px;font-size:13px;}
+.field input:focus,.field select:focus{outline:none;border-color:var(--cyan);}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.btn{border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;}
+.btn-cyan{background:var(--cyan);color:#fff;}
+.btn-cyan:hover{background:var(--cyan2);}
+.btn-ghost{background:var(--panel2);color:#fff;border:1px solid var(--line);}
+.btn-ghost:hover{background:#294058;}
+.btn-green{background:var(--green);color:#fff;}
+.btn-green:hover{filter:brightness(1.1);}
+.statusbar{background:rgba(40,167,69,.15);border:1px solid var(--green);color:#7fe39a;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:12px;font-weight:600;}
+.searchwrap{display:flex;gap:10px;align-items:center;}
+.searchwrap input{flex:1;}
+.hint{color:var(--muted);font-size:11px;margin-top:8px;}
+/* CARDS 6 DOCS */
+.docs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+@media(max-width:1050px){.docs-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:650px){.docs-grid{grid-template-columns:1fr;}}
+.doc-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px;display:flex;flex-direction:column;}
+.doc-head{display:flex;align-items:center;gap:9px;margin-bottom:12px;}
+.pdf-ic{width:30px;height:34px;border-radius:5px;background:#c0392b;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;}
+.doc-head b{font-size:16px;letter-spacing:1px;}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:22px 10px;text-align:center;color:var(--muted);font-size:12px;cursor:pointer;transition:.15s;min-height:92px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;}
+.drop:hover,.drop.over{border-color:var(--cyan);background:rgba(0,160,220,.08);color:#cfe8f7;}
+.drop .big{font-size:26px;}
+.doc-actions{display:flex;gap:8px;margin-top:11px;}
+.doc-actions .btn{flex:1;justify-content:center;padding:8px 6px;font-size:12px;}
+.filestate{margin-top:10px;font-size:11px;color:var(--muted);}
+.filestate.ok{color:#7fe39a;}
+.filelist{margin-top:8px;font-size:11px;}
+.filelist .f{display:flex;justify-content:space-between;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;margin-top:4px;}
+.filelist .f button{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;}
+.footer-note{color:var(--muted);font-size:11px;margin-top:18px;line-height:1.5;border-top:1px solid var(--line);padding-top:12px;}
+.badge{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--muted);}
+/* TABLE */
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px;}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);}
+th{color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;}
+tr:hover td{background:var(--panel2);}
+.empty{color:var(--muted);text-align:center;padding:30px;font-size:13px;}
+.pill{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;}
+.pill.full{background:rgba(40,167,69,.2);color:#7fe39a;}
+.pill.part{background:rgba(241,181,61,.2);color:var(--amber);}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--panel);border:1px solid var(--cyan);color:#fff;padding:13px 18px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:999;display:none;max-width:340px;font-size:13px;}
+.verbadge{position:fixed;bottom:10px;left:10px;background:var(--green);color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;z-index:999;}
+/* LOGIN */
+.login-screen{position:fixed;inset:0;background:radial-gradient(circle at 30% 20%,#13263b,#0b141e 70%);display:flex;align-items:center;justify-content:center;z-index:2000;}
+.login-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:34px 30px;width:340px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+.login-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;justify-content:center;}
+.login-logo .dot{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--cyan),#0066aa);display:flex;align-items:center;justify-content:center;font-size:18px;}
+.login-sub{text-align:center;color:var(--muted);font-size:12px;margin:8px 0 22px;}
+.login-btn{width:100%;justify-content:center;margin-top:20px;padding:12px;font-size:15px;}
+.login-err{color:var(--red);font-size:12px;text-align:center;margin-top:12px;min-height:16px;font-weight:600;}
+/* PERMISOS checkbox */
+.perm-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;}
+.perm-chk{display:flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer;}
+.perm-chk input{width:16px;height:16px;accent-color:var(--cyan);}
+.side-item.locked{display:none;}
+</style>
+</head>
+<body>
+<!-- LOGIN -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <div class="login-logo"><span class="dot">📁</span> ARCHIVO DIGITAL</div>
+    <p class="login-sub">Gestión Documental · IPS NIT 819004318</p>
+    <div class="field"><label>Usuario</label><input id="loginUser" autocomplete="off" placeholder="Usuario"></div>
+    <div class="field" style="margin-top:14px"><label>Contraseña</label><input id="loginPass" type="password" placeholder="Contraseña"></div>
+    <button class="btn btn-cyan login-btn" id="btnLogin">Ingresar</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+<div class="topbar">
+  <div class="brand"><span class="dot">📁</span> ARCHIVO DIGITAL</div>
+  <div class="user">
+    <div class="uinfo"><b id="curUserName">—</b><br><small id="curUserRole">—</small></div>
+    <div class="avatar" id="curUserAvatar">U</div>
+    <button class="logout" id="btnLogout">Cerrar Sesión</button>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="side-item active" data-view="documentos" data-perm="documentos"><span class="ic">📂</span> Documentos</div>
+    <div class="side-item" data-view="busqueda" data-perm="busqueda"><span class="ic">🔍</span> Búsqueda</div>
+    <div class="side-item" data-view="cuentas" data-perm="cuentas"><span class="ic">🧾</span> Cuentas de cobro</div>
+    <div class="side-item" data-view="configuraciones" data-perm="configuraciones"><span class="ic">⚙️</span> Configuraciones</div>
+  </aside>
+
+  <main class="main">
+    <!-- ================= DOCUMENTOS ================= -->
+    <section class="view active" id="view-documentos">
+      <div class="card-box">
+        <div class="sec-title">Sección 1 – Configuración de destino y datos</div>
+        <div class="grid-cfg">
+          <div class="field">
+            <label>Carpeta de destino</label>
+            <input id="cfgCarpeta" readonly placeholder="Haz clic en 'Elegir carpeta'" value="(sin carpeta elegida – se descargará un ZIP)">
+          </div>
+          <div class="field">
+            <label>Nombre de la carpeta (lote)</label>
+            <input id="cfgLote" value="1">
+          </div>
+          <div class="field">
+            <label>NIT de la IPS</label>
+            <input id="cfgNit" value="819004318">
+          </div>
+          <div class="field">
+            <label>Bloque de separación</label>
+            <select id="cfgSep">
+              <option value="_">Guión bajo _</option>
+              <option value="-">Guión -</option>
+              <option value="">Sin separador</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="btnElegir">📁 Elegir carpeta</button>
+          <button class="btn btn-cyan" id="btnCrear">➕ Crear carpeta</button>
+          <button class="btn btn-ghost" id="btnNuevoLote">🔄 Nuevo lote</button>
+          <span class="badge" id="nombreEjemplo">CRC_819004318_1.pdf</span>
+        </div>
+        <div class="statusbar" id="statusbar">Continuando lote: <b>1</b> (0 de 6 documentos ya guardados)</div>
+      </div>
+
+      <div class="card-box">
+        <div class="sec-title">Carpetas de admisiones / facturas</div>
+        <div class="searchwrap">
+          <div class="field" style="flex:1"><input id="buscaAdm" placeholder="N° de admisión, N° de factura, documento o nombre del paciente..."></div>
+          <button class="btn btn-ghost" id="btnLimpiarAdm">✕ Limpiar</button>
+        </div>
+        <div class="hint">Escribe el N° de admisión, N° de factura o documento del paciente arriba para filtrar los lotes guardados (<span id="totalCarpetas">0</span> carpetas en total).</div>
+      </div>
+
+      <div class="card-box">
+        <div class="sec-title">Sección 2 – Zona de carga (6 documentos)</div>
+        <div class="docs-grid" id="docsGrid"></div>
+        <div class="btn-row" style="margin-top:18px">
+          <button class="btn btn-green" id="btnGuardarLote">💾 Guardar lote (6 documentos)</button>
+          <button class="btn btn-ghost" id="btnLimpiarTodo">🧹 Limpiar todo</button>
+        </div>
+        <div class="footer-note">Puedes soltar varios PDF en una misma casilla: se unirán en un único archivo, en el orden que los sueltes, y se guardarán con la nomenclatura estricta <b>TIPO‹sep›NIT‹sep›LOTE.pdf</b>. El nombre original de cada PDF se ignora por completo.</div>
+      </div>
+    </section>
+
+    <!-- ================= BUSQUEDA ================= -->
+    <section class="view" id="view-busqueda">
+      <div class="card-box">
+        <div class="sec-title">Búsqueda de documentos guardados</div>
+        <div class="searchwrap">
+          <div class="field" style="flex:1"><input id="buscaGlobal" placeholder="Buscar por lote, tipo de documento o fecha..."></div>
+          <button class="btn btn-ghost" id="btnLimpiarBusq">✕ Limpiar</button>
+        </div>
+        <div id="tablaBusqueda"></div>
+      </div>
+    </section>
+
+    <!-- ================= CUENTAS DE COBRO ================= -->
+    <section class="view" id="view-cuentas">
+      <div class="card-box">
+        <div class="sec-title">Cuentas de cobro</div>
+        <div class="grid-cfg" style="grid-template-columns:1fr 1fr 1fr">
+          <div class="field"><label>N° cuenta de cobro</label><input id="ccNum" placeholder="Ej: CC-001"></div>
+          <div class="field"><label>Lote asociado</label><input id="ccLote" placeholder="Ej: 1"></div>
+          <div class="field"><label>Valor</label><input id="ccValor" placeholder="$"></div>
+        </div>
+        <div class="btn-row"><button class="btn btn-cyan" id="btnAddCC">➕ Registrar cuenta de cobro</button></div>
+        <div id="tablaCuentas"></div>
+      </div>
+    </section>
+
+    <!-- ================= CONFIGURACIONES ================= -->
+    <section class="view" id="view-configuraciones">
+      <div class="card-box">
+        <div class="sec-title">Crear usuario</div>
+        <div class="grid-cfg" style="grid-template-columns:1fr 1fr">
+          <div class="field"><label>Nombre de usuario</label><input id="newUser" autocomplete="off" placeholder="Ej: MROJAS"></div>
+          <div class="field"><label>Contraseña</label><input id="newPass" placeholder="Contraseña"></div>
+        </div>
+        <div class="field" style="margin-top:14px">
+          <label>Permisos (tarjetas que podrá ver este usuario)</label>
+          <div class="perm-row">
+            <label class="perm-chk"><input type="checkbox" value="documentos" checked> Documentos</label>
+            <label class="perm-chk"><input type="checkbox" value="busqueda"> Búsqueda</label>
+            <label class="perm-chk"><input type="checkbox" value="cuentas"> Cuentas de cobro</label>
+            <label class="perm-chk"><input type="checkbox" value="configuraciones"> Configuraciones</label>
+          </div>
+        </div>
+        <div class="btn-row"><button class="btn btn-cyan" id="btnAddUser">➕ Crear usuario</button></div>
+      </div>
+      <div class="card-box">
+        <div class="sec-title">Usuarios y permisos</div>
+        <div id="tablaUsuarios"></div>
+      </div>
+    </section>
+  </main>
+</div>
+</div><!-- /#app -->
+<div class="toast" id="toast"></div>
+<div class="verbadge">ARCHIVO DIGITAL v1.0</div>
+</body>
+<script>
+const { PDFDocument } = PDFLib;
+const DOC_TYPES = [
+  { id:'CRC', action:'✅ Verificar CRC' },
+  { id:'PDE', action:null },
+  { id:'HEV', action:null },
+  { id:'RED', action:null },
+  { id:'OPF', action:null },
+  { id:'FEV', action:'🧾 Adjuntar factura automática' }
+];
+const LS_LOTES = 'archivo_digital_lotes';
+const LS_CC    = 'archivo_digital_cuentas';
+let slots = {};            // {CRC:[File,...]}
+DOC_TYPES.forEach(d=>slots[d.id]=[]);
+let dirHandle = null;      // File System Access API folder
+
+const $ = s=>document.querySelector(s);
+const $$ = s=>document.querySelectorAll(s);
+function toast(msg){const t=$('#toast');t.innerHTML=msg;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3800);}
+function sep(){return $('#cfgSep').value;}
+function nombreArchivo(tipo){return tipo+sep()+$('#cfgNit').value.trim()+sep()+$('#cfgLote').value.trim()+'.pdf';}
+
+/* ---------- VISTA (sidebar) ---------- */
+$$('.side-item').forEach(it=>it.addEventListener('click',()=>{
+  $$('.side-item').forEach(x=>x.classList.remove('active'));
+  it.classList.add('active');
+  $$('.view').forEach(v=>v.classList.remove('active'));
+  $('#view-'+it.dataset.view).classList.add('active');
+  if(it.dataset.view==='busqueda') renderBusqueda();
+  if(it.dataset.view==='cuentas') renderCuentas();
+  if(it.dataset.view==='configuraciones') renderUsuarios();
+}));
+
+/* ---------- CONSTRUIR 6 TARJETAS ---------- */
+function buildCards(){
+  const g=$('#docsGrid'); g.innerHTML='';
+  DOC_TYPES.forEach(d=>{
+    const card=document.createElement('div');
+    card.className='doc-card';
+    card.innerHTML=`
+      <div class="doc-head"><span class="pdf-ic">PDF</span><b>${d.id}</b></div>
+      <div class="drop" data-tipo="${d.id}">
+        <span class="big">⬆️</span>
+        <span>Arrastra PDF aquí o haz clic para seleccionar</span>
+      </div>
+      <div class="doc-actions">
+        <button class="btn btn-ghost btn-ver" data-tipo="${d.id}">👁️ Ver</button>
+        <button class="btn btn-ghost btn-del" data-tipo="${d.id}">🗑️ Eliminar</button>
+        <button class="btn btn-green btn-save" data-tipo="${d.id}">💾 Guardar</button>
+      </div>
+      <div class="filestate" data-state="${d.id}">Sin archivos</div>
+      <div class="filelist" data-list="${d.id}"></div>`;
+    g.appendChild(card);
+  });
+  wireCards();
+}
+
+function wireCards(){
+  $$('.drop').forEach(drop=>{
+    const tipo=drop.dataset.tipo;
+    drop.addEventListener('click',()=>pickFiles(tipo));
+    drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
+    drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+    drop.addEventListener('drop',e=>{
+      e.preventDefault();drop.classList.remove('over');
+      addFiles(tipo,[...e.dataTransfer.files]);
+    });
+  });
+  $$('.btn-ver').forEach(b=>b.addEventListener('click',()=>verDoc(b.dataset.tipo)));
+  $$('.btn-del').forEach(b=>b.addEventListener('click',()=>{slots[b.dataset.tipo]=[];renderSlot(b.dataset.tipo);updateStatus();toast('🗑️ Casilla '+b.dataset.tipo+' vaciada.');}));
+  $$('.btn-save').forEach(b=>b.addEventListener('click',()=>guardarDoc(b.dataset.tipo)));
+}
+
+/* VER: abre vista previa del PDF (unido) en una pestaña nueva */
+async function verDoc(tipo){
+  if(!slots[tipo].length){toast('⚠️ La casilla '+tipo+' no tiene archivos.');return;}
+  try{
+    const bytes=await mergeSlot(tipo);
+    const blob=new Blob([bytes],{type:'application/pdf'});
+    window.open(URL.createObjectURL(blob),'_blank');
+  }catch(e){toast('❌ No se pudo abrir: '+e.message);}
+}
+
+/* GUARDAR: guarda solo esa tarjeta con su nomenclatura */
+async function guardarDoc(tipo){
+  const nit=$('#cfgNit').value.trim(), lote=$('#cfgLote').value.trim();
+  if(!slots[tipo].length){toast('⚠️ La casilla '+tipo+' no tiene archivos.');return;}
+  if(!nit||!lote){toast('⚠️ Falta NIT o lote.');return;}
+  try{
+    const bytes=await mergeSlot(tipo);const nombre=nombreArchivo(tipo);
+    if(dirHandle){
+      const loteDir=await dirHandle.getDirectoryHandle(lote,{create:true});
+      const fh=await loteDir.getFileHandle(nombre,{create:true});
+      const w=await fh.createWritable();await w.write(bytes);await w.close();
+      toast('✅ '+nombre+' guardado en disco.');
+    }else{
+      const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+      a.download=nombre;a.click();
+      toast('✅ '+nombre+' descargado.');
+    }
+  }catch(e){toast('❌ Error: '+e.message);}
+}
+
+function pickFiles(tipo){
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='application/pdf';inp.multiple=true;
+  inp.onchange=()=>addFiles(tipo,[...inp.files]);
+  inp.click();
+}
+function addFiles(tipo,files){
+  const pdfs=files.filter(f=>f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf'));
+  if(!pdfs.length){toast('⚠️ Solo se aceptan archivos PDF.');return;}
+  slots[tipo].push(...pdfs);
+  renderSlot(tipo);updateStatus();
+}
+function removeFile(tipo,i){slots[tipo].splice(i,1);renderSlot(tipo);updateStatus();}
+function renderSlot(tipo){
+  const st=$(`[data-state="${tipo}"]`);const ls=$(`[data-list="${tipo}"]`);
+  const n=slots[tipo].length;
+  if(n===0){st.textContent='Sin archivos';st.classList.remove('ok');ls.innerHTML='';return;}
+  st.textContent=(n===1?'1 archivo listo':n+' archivos (se unirán en 1)');st.classList.add('ok');
+  ls.innerHTML=slots[tipo].map((f,i)=>`<div class="f"><span>${i+1}. ${f.name}</span><button onclick="removeFile('${tipo}',${i})">✕</button></div>`).join('');
+}
+window.removeFile=removeFile;
+
+function updateStatus(){
+  const llenos=DOC_TYPES.filter(d=>slots[d.id].length>0).length;
+  $('#statusbar').innerHTML=`Continuando lote: <b>${$('#cfgLote').value}</b> (${llenos} de 6 documentos ya cargados)`;
+  $('#nombreEjemplo').textContent=nombreArchivo('CRC');
+}
+/* ---------- CONFIG BOTONES ---------- */
+$('#cfgSep').addEventListener('change',updateStatus);
+$('#cfgNit').addEventListener('input',updateStatus);
+$('#cfgLote').addEventListener('input',updateStatus);
+
+$('#btnElegir').addEventListener('click',async()=>{
+  if(!window.showDirectoryPicker){toast('ℹ️ Tu navegador no permite elegir carpeta. Se descargará un ZIP. Usa Chrome/Edge para guardar directo en disco.');return;}
+  try{dirHandle=await window.showDirectoryPicker({mode:'readwrite'});
+    $('#cfgCarpeta').value=dirHandle.name+' (carpeta elegida)';
+    toast('✅ Carpeta elegida. Los lotes se guardarán ahí directamente.');
+  }catch(e){}
+});
+
+$('#btnCrear').addEventListener('click',async()=>{
+  const lote=$('#cfgLote').value.trim();
+  if(!lote){toast('⚠️ Escribe el nombre del lote.');return;}
+  if(dirHandle){
+    try{await dirHandle.getDirectoryHandle(lote,{create:true});
+      toast('✅ Carpeta del lote "'+lote+'" creada en disco.');
+    }catch(e){toast('⚠️ No se pudo crear la carpeta: '+e.message);}
+  }else{toast('ℹ️ No hay carpeta elegida: la carpeta del lote se creará dentro del ZIP al guardar.');}
+});
+
+$('#btnNuevoLote').addEventListener('click',()=>{
+  const actual=parseInt($('#cfgLote').value)||0;
+  $('#cfgLote').value=actual+1;
+  DOC_TYPES.forEach(d=>{slots[d.id]=[];renderSlot(d.id);});
+  updateStatus();
+  toast('🔄 Nuevo lote: '+$('#cfgLote').value);
+});
+
+$('#btnLimpiarTodo').addEventListener('click',()=>{
+  DOC_TYPES.forEach(d=>{slots[d.id]=[];renderSlot(d.id);});
+  updateStatus();toast('🧹 Casillas limpiadas.');
+});
+
+/* ---------- UNIR PDFs ---------- */
+async function mergeSlot(tipo){
+  const files=slots[tipo];
+  const out=await PDFDocument.create();
+  for(const f of files){
+    const bytes=await f.arrayBuffer();
+    const src=await PDFDocument.load(bytes,{ignoreEncryption:true});
+    const pages=await out.copyPages(src,src.getPageIndices());
+    pages.forEach(p=>out.addPage(p));
+  }
+  return await out.save();
+}
+
+/* ---------- GUARDAR LOTE ---------- */
+$('#btnGuardarLote').addEventListener('click',async()=>{
+  const nit=$('#cfgNit').value.trim(), lote=$('#cfgLote').value.trim();
+  if(!nit){toast('⚠️ Falta el NIT de la IPS.');return;}
+  if(!lote){toast('⚠️ Falta el nombre del lote.');return;}
+  const conDatos=DOC_TYPES.filter(d=>slots[d.id].length>0);
+  if(!conDatos.length){toast('⚠️ No has cargado ningún documento.');return;}
+  $('#btnGuardarLote').disabled=true;$('#btnGuardarLote').textContent='⏳ Guardando...';
+  try{
+    const generados=[];
+    const pdfMap={};
+    for(const d of conDatos){
+      const bytes=await mergeSlot(d.id);
+      pdfMap[nombreArchivo(d.id)]=bytes;
+      generados.push({tipo:d.id,nombre:nombreArchivo(d.id),paginas:0});
+    }
+    if(dirHandle){
+      const loteDir=await dirHandle.getDirectoryHandle(lote,{create:true});
+      for(const nombre in pdfMap){
+        const fh=await loteDir.getFileHandle(nombre,{create:true});
+        const w=await fh.createWritable();await w.write(pdfMap[nombre]);await w.close();
+      }
+      toast('✅ Lote '+lote+' guardado en la carpeta del disco ('+generados.length+' PDF).');
+    }else{
+      const zip=new JSZip();const folder=zip.folder(lote);
+      for(const nombre in pdfMap) folder.file(nombre,pdfMap[nombre]);
+      const blob=await zip.generateAsync({type:'blob'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+      a.download='lote_'+lote+'.zip';a.click();
+      toast('✅ Lote '+lote+' descargado como ZIP ('+generados.length+' PDF).');
+    }
+    registrarLote(nit,lote,generados);
+  }catch(e){toast('❌ Error al guardar: '+e.message);}
+  $('#btnGuardarLote').disabled=false;$('#btnGuardarLote').innerHTML='💾 Guardar lote (6 documentos)';
+});
+
+function registrarLote(nit,lote,docs){
+  const data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
+  data.unshift({nit,lote,docs,fecha:new Date().toLocaleString('es-CO')});
+  localStorage.setItem(LS_LOTES,JSON.stringify(data));
+  actualizarTotal();
+}
+function actualizarTotal(){
+  const data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
+  $('#totalCarpetas').textContent=data.length;
+}
+/* ---------- FILTRO ADMISIONES (vista Documentos) ---------- */
+$('#btnLimpiarAdm').addEventListener('click',()=>{$('#buscaAdm').value='';});
+
+/* ---------- BUSQUEDA ---------- */
+$('#buscaGlobal').addEventListener('input',renderBusqueda);
+$('#btnLimpiarBusq').addEventListener('click',()=>{$('#buscaGlobal').value='';renderBusqueda();});
+function renderBusqueda(){
+  const q=($('#buscaGlobal')?.value||'').toLowerCase();
+  let data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
+  if(q) data=data.filter(l=>(l.lote+' '+l.nit+' '+l.fecha+' '+l.docs.map(d=>d.tipo).join(' ')).toLowerCase().includes(q));
+  const cont=$('#tablaBusqueda');
+  if(!data.length){cont.innerHTML='<div class="empty">No hay lotes guardados todavía.</div>';return;}
+  let rows=data.map(l=>{
+    const pill=l.docs.length===6?'<span class="pill full">6/6 completo</span>':`<span class="pill part">${l.docs.length}/6</span>`;
+    return `<tr><td><b>${l.lote}</b></td><td>${l.nit}</td><td>${pill}</td><td>${l.docs.map(d=>d.tipo).join(', ')}</td><td>${l.fecha}</td></tr>`;
+  }).join('');
+  cont.innerHTML=`<table><thead><tr><th>Lote</th><th>NIT</th><th>Estado</th><th>Documentos</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+/* ---------- CUENTAS DE COBRO ---------- */
+$('#btnAddCC').addEventListener('click',()=>{
+  const num=$('#ccNum').value.trim(),lote=$('#ccLote').value.trim(),valor=$('#ccValor').value.trim();
+  if(!num){toast('⚠️ Escribe el N° de cuenta de cobro.');return;}
+  const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
+  data.unshift({num,lote,valor,fecha:new Date().toLocaleString('es-CO')});
+  localStorage.setItem(LS_CC,JSON.stringify(data));
+  $('#ccNum').value='';$('#ccLote').value='';$('#ccValor').value='';
+  renderCuentas();toast('✅ Cuenta de cobro registrada.');
+});
+function renderCuentas(){
+  const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
+  const cont=$('#tablaCuentas');
+  if(!data.length){cont.innerHTML='<div class="empty">No hay cuentas de cobro registradas.</div>';return;}
+  let rows=data.map((c,i)=>`<tr><td><b>${c.num}</b></td><td>${c.lote||'-'}</td><td>${c.valor||'-'}</td><td>${c.fecha}</td><td><button class="btn btn-ghost" style="padding:4px 10px" onclick="delCC(${i})">🗑️</button></td></tr>`).join('');
+  cont.innerHTML=`<table><thead><tr><th>N° Cuenta</th><th>Lote</th><th>Valor</th><th>Fecha</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+window.delCC=i=>{const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');data.splice(i,1);localStorage.setItem(LS_CC,JSON.stringify(data));renderCuentas();};
+
+/* ================= SEGURIDAD / USUARIOS ================= */
+const LS_USERS='archivo_digital_usuarios';
+const MASTER={user:'JDEAGUAS',pass:'123',role:'MAESTRO',perms:['documentos','busqueda','cuentas','configuraciones'],master:true};
+let currentUser=null;
+const SECCIONES={documentos:'Documentos',busqueda:'Búsqueda',cuentas:'Cuentas de cobro',configuraciones:'Configuraciones'};
+
+function getUsers(){return JSON.parse(localStorage.getItem(LS_USERS)||'[]');}
+function saveUsers(u){localStorage.setItem(LS_USERS,JSON.stringify(u));}
+
+function doLogin(){
+  const u=$('#loginUser').value.trim(), p=$('#loginPass').value;
+  let found=null;
+  if(u.toUpperCase()===MASTER.user && p===MASTER.pass){found={...MASTER};}
+  else{const m=getUsers().find(x=>x.user.toUpperCase()===u.toUpperCase() && x.pass===p);if(m)found={...m,master:false};}
+  if(!found){$('#loginErr').textContent='Usuario o contraseña incorrectos.';return;}
+  currentUser=found;
+  $('#loginErr').textContent='';$('#loginPass').value='';
+  $('#loginScreen').style.display='none';
+  $('#app').style.display='block';
+  aplicarSesion();
+}
+function aplicarSesion(){
+  $('#curUserName').textContent=currentUser.user.toUpperCase();
+  $('#curUserRole').textContent=currentUser.master?'MAESTRO':'USUARIO';
+  $('#curUserAvatar').textContent=currentUser.user.charAt(0).toUpperCase();
+  // permisos: mostrar solo las tarjetas permitidas
+  $$('.side-item').forEach(it=>{
+    const perm=it.dataset.perm;
+    it.classList.toggle('locked', !currentUser.perms.includes(perm));
+  });
+  // seleccionar la primera tarjeta permitida
+  const first=[...$$('.side-item')].find(it=>!it.classList.contains('locked'));
+  if(first) first.click();
+}
+$('#btnLogin').addEventListener('click',doLogin);
+$('#loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+$('#loginUser').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+$('#btnLogout').addEventListener('click',()=>{
+  currentUser=null;$('#app').style.display='none';
+  $('#loginScreen').style.display='flex';
+  $('#loginUser').value='';$('#loginPass').value='';
+});
+
+/* ---------- CREAR USUARIO / PERMISOS ---------- */
+$('#btnAddUser').addEventListener('click',()=>{
+  const u=$('#newUser').value.trim(), p=$('#newPass').value.trim();
+  if(!u||!p){toast('⚠️ Escribe usuario y contraseña.');return;}
+  if(u.toUpperCase()===MASTER.user){toast('⚠️ Ese nombre está reservado para el usuario maestro.');return;}
+  const perms=[...document.querySelectorAll('#view-configuraciones .perm-chk input:checked')].map(c=>c.value);
+  if(!perms.length){toast('⚠️ Marca al menos una tarjeta de permiso.');return;}
+  const users=getUsers();
+  if(users.find(x=>x.user.toUpperCase()===u.toUpperCase())){toast('⚠️ Ya existe un usuario con ese nombre.');return;}
+  users.push({user:u,pass:p,perms});saveUsers(users);
+  $('#newUser').value='';$('#newPass').value='';
+  renderUsuarios();toast('✅ Usuario "'+u+'" creado.');
+});
+
+function renderUsuarios(){
+  const cont=$('#tablaUsuarios');const users=getUsers();
+  let masterRow=`<tr><td><b>${MASTER.user}</b></td><td><span class="pill full">MAESTRO</span></td><td>Todas las tarjetas</td><td><span style="color:var(--muted)">protegido</span></td></tr>`;
+  let rows=users.map((x,i)=>`<tr><td><b>${x.user}</b></td><td><span class="pill part">USUARIO</span></td><td>${x.perms.map(p=>SECCIONES[p]).join(', ')}</td><td><button class="btn btn-ghost" style="padding:4px 10px" onclick="delUser(${i})">🗑️</button></td></tr>`).join('');
+  cont.innerHTML=`<table><thead><tr><th>Usuario</th><th>Rol</th><th>Permisos</th><th></th></tr></thead><tbody>${masterRow}${rows}</tbody></table>`;
+}
+window.delUser=i=>{const u=getUsers();u.splice(i,1);saveUsers(u);renderUsuarios();toast('🗑️ Usuario eliminado.');};
+
+/* ---------- INIT ---------- */
+buildCards();
+updateStatus();
+actualizarTotal();
+$('#loginUser').focus();
+</script>
+</html>
