@@ -247,7 +247,7 @@ tr:hover td{background:var(--panel2);}
 </div>
 </div><!-- /#app -->
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v1.1 · ☁️ DRIVE</div>
+<div class="verbadge">ARCHIVO DIGITAL v1.2 · ☁️ DRIVE</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -340,9 +340,9 @@ async function guardarDoc(tipo){
   try{
     const bytes=await mergeSlot(tipo);const nombre=nombreArchivo(tipo);
     if(driveOn){
-      const root=await ensureFevRoot();
-      const lf=await ensureFolder(String(lote),root);
-      await uploadPdf(nombre,bytes,lf);
+      const lf=await ensureLoteFolder(lote);
+      await uploadPdfCached(lote,nombre,bytes,lf);
+      markCardSaved(tipo,nombre);
       toast('☁️ '+nombre+' subido a Google Drive (FACTURACION EVENTO / '+lote+').');
     }else if(dirHandle){
       const loteDir=await dirHandle.getDirectoryHandle(lote,{create:true});
@@ -378,6 +378,15 @@ function renderSlot(tipo){
   ls.innerHTML=slots[tipo].map((f,i)=>`<div class="f"><span>${i+1}. ${f.name}</span><button onclick="removeFile('${tipo}',${i})">✕</button></div>`).join('');
 }
 window.removeFile=removeFile;
+
+/* Tras guardar: la tarjeta muestra el nombre renombrado final */
+function markCardSaved(tipo,nombre){
+  const st=document.querySelector('[data-state="'+tipo+'"]');
+  const ls=document.querySelector('[data-list="'+tipo+'"]');
+  if(st){st.innerHTML='✅ Guardado como: <b>'+nombre+'</b>';st.classList.add('ok');}
+  if(ls){ls.innerHTML='<div class="f" style="border-color:var(--green);color:#7fe39a"><span>📄 '+nombre+'</span><span>✓ en Drive</span></div>';}
+}
+window.markCardSaved=markCardSaved;
 
 function updateStatus(){
   const llenos=DOC_TYPES.filter(d=>slots[d.id].length>0).length;
@@ -443,6 +452,7 @@ $('#btnGuardarLote').addEventListener('click',async()=>{
     }
     if(driveOn){
       const n=await subirLoteADrive(pdfMap,lote);
+      generados.forEach(g=>markCardSaved(g.tipo,g.nombre));
       toast('☁️ Lote '+lote+' guardado en Google Drive → FACTURACION EVENTO / '+lote+' ('+n+' PDF).');
     }else if(dirHandle){
       const loteDir=await dirHandle.getDirectoryHandle(lote,{create:true});
@@ -665,13 +675,24 @@ async function findFile(name,parent){
   const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name)&spaces=drive');
   const j=await r.json();return (j.files&&j.files[0])?j.files[0].id:null;
 }
-async function uploadPdf(name,bytes,parent){
-  const blob=new Blob([bytes],{type:'application/pdf'});
-  const existing=await findFile(name,parent);
-  if(existing){
-    await driveFetch('https://www.googleapis.com/upload/drive/v3/files/'+existing+'?uploadType=media&fields=id',{method:'PATCH',headers:{'Content-Type':'application/pdf'},body:blob});
-    return existing;
-  }
+function driveIdStore(){try{return JSON.parse(localStorage.getItem('archivo_digital_drive_ids')||'{}');}catch(e){return {};}}
+function saveDriveIdStore(s){localStorage.setItem('archivo_digital_drive_ids',JSON.stringify(s));}
+async function fileAlive(id){try{const r=await driveFetch('https://www.googleapis.com/drive/v3/files/'+id+'?fields=id,trashed');const j=await r.json();return !!(j.id&&!j.trashed);}catch(e){return false;}}
+async function ensureLoteFolder(lote){
+  const root=await ensureFevRoot();
+  const store=driveIdStore(); store[lote]=store[lote]||{files:{}};
+  let fid=store[lote].folderId;
+  if(fid && await fileAlive(fid)) return fid;
+  fid=await findFolder(String(lote),root);
+  if(!fid)fid=await createFolder(String(lote),root);
+  store[lote].folderId=fid; store[lote].files=store[lote].files||{}; saveDriveIdStore(store);
+  return fid;
+}
+async function replaceMedia(id,blob){
+  await driveFetch('https://www.googleapis.com/upload/drive/v3/files/'+id+'?uploadType=media',{method:'PATCH',headers:{'Content-Type':'application/pdf'},body:blob});
+  return id;
+}
+async function createPdf(name,blob,parent){
   const meta={name:String(name),parents:[parent]};
   const boundary='adf'+Date.now()+Math.random().toString(16).slice(2);
   const enc=new TextEncoder();
@@ -680,11 +701,32 @@ async function uploadPdf(name,bytes,parent){
   const r=await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body:new Blob([pre,blob,post])});
   const j=await r.json();return j.id;
 }
+async function dedupeFile(name,parent,keepId){
+  try{
+    let q="trashed=false and name='"+String(name).replace(/'/g,"\\'")+"' and '"+parent+"' in parents";
+    const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id)&spaces=drive');
+    const j=await r.json();
+    if(j.files){for(const f of j.files){if(f.id!==keepId){try{await driveFetch('https://www.googleapis.com/drive/v3/files/'+f.id,{method:'DELETE'});}catch(e){}}}}
+  }catch(e){}
+}
+async function uploadPdfCached(lote,name,bytes,parent){
+  const blob=new Blob([bytes],{type:'application/pdf'});
+  const store=driveIdStore(); store[lote]=store[lote]||{folderId:parent,files:{}}; store[lote].files=store[lote].files||{};
+  let fid=store[lote].files[name];
+  if(fid && await fileAlive(fid)){ await replaceMedia(fid,blob); }
+  else{
+    fid=await findFile(name,parent);
+    if(fid){ await replaceMedia(fid,blob); }
+    else{ fid=await createPdf(name,blob,parent); }
+  }
+  store[lote].files[name]=fid; saveDriveIdStore(store);
+  await dedupeFile(name,parent,fid);
+  return fid;
+}
 async function subirLoteADrive(pdfMap,lote){
-  const root=await ensureFevRoot();
-  const loteFolder=await ensureFolder(String(lote),root);
+  const loteFolder=await ensureLoteFolder(lote);
   let n=0;
-  for(const nombre in pdfMap){await uploadPdf(nombre,pdfMap[nombre],loteFolder);n++;}
+  for(const nombre in pdfMap){await uploadPdfCached(lote,nombre,pdfMap[nombre],loteFolder);n++;}
   return n;
 }
 
