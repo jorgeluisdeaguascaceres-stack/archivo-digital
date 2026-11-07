@@ -8,18 +8,23 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0b141e; --panel:#172433; --panel2:#1f3246; --line:#2a3f55;
-  --cyan:#00a0dc; --cyan2:#33b5e5; --txt:#ffffff; --muted:#9fb3c8;
+  --bg:#070f18; --panel:#101f30; --panel2:#182c42; --line:#22364d;
+  --cyan:#00bcd4; --cyan2:#22d3ee; --cyan3:#0891b2; --txt:#eaf4fb; --muted:#8aa2ba;
   --green:#28a745; --red:#e74c3c; --amber:#f1b53d;
+  --grad-cyan:linear-gradient(135deg,#22d3ee 0%,#06b6d4 45%,#0e7fb8 100%);
+  --glow-cyan:0 0 0 1px rgba(34,211,238,.25), 0 10px 40px -8px rgba(6,182,212,.45);
 }
-*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Inter','Segoe UI',system-ui,sans-serif;}
 body{background:var(--bg);color:var(--txt);font-size:14px;}
 /* HEADER */
 .topbar{display:flex;align-items:center;justify-content:space-between;background:#0b141e;border-bottom:1px solid var(--line);padding:10px 18px;position:sticky;top:0;z-index:50;}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:.5px;}
-.brand .dot{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--cyan),#0066aa);display:flex;align-items:center;justify-content:center;font-size:15px;}
+.brand .dot{width:30px;height:30px;border-radius:9px;background:var(--grad-cyan);display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 4px 14px -4px rgba(6,182,212,.7);}
 .nav{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;flex:1;margin:0 16px;}
 .nav a{color:var(--muted);text-decoration:none;font-size:12px;padding:6px 8px;border-radius:6px;white-space:nowrap;}
 .nav a:hover{background:var(--panel);color:#fff;}
@@ -35,7 +40,7 @@ body{background:var(--bg);color:var(--txt);font-size:14px;}
 .sidebar{width:210px;background:#0b141e;border-right:1px solid var(--line);padding:16px 10px;flex-shrink:0;}
 .side-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:9px;color:var(--muted);cursor:pointer;margin-bottom:6px;font-weight:600;}
 .side-item:hover{background:var(--panel);color:#fff;}
-.side-item.active{background:var(--cyan);color:#fff;}
+.side-item.active{background:var(--grad-cyan);color:#04121a;font-weight:700;box-shadow:0 6px 18px -6px rgba(6,182,212,.6);}
 .side-item .ic{font-size:16px;}
 .main{flex:1;padding:22px;overflow:auto;}
 .view{display:none;}
@@ -50,9 +55,10 @@ body{background:var(--bg);color:var(--txt);font-size:14px;}
 .field input,.field select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:#fff;padding:9px 11px;font-size:13px;}
 .field input:focus,.field select:focus{outline:none;border-color:var(--cyan);}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
-.btn{border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;}
-.btn-cyan{background:var(--cyan);color:#fff;}
-.btn-cyan:hover{background:var(--cyan2);}
+.btn{border:none;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:transform .12s ease,box-shadow .2s ease,filter .2s ease;}
+.btn:active{transform:translateY(1px);}
+.btn-cyan{background:var(--grad-cyan);color:#04121a;font-weight:700;box-shadow:0 6px 20px -6px rgba(6,182,212,.6);}
+.btn-cyan:hover{filter:brightness(1.08);box-shadow:0 10px 28px -6px rgba(34,211,238,.7);}
 .btn-ghost{background:var(--panel2);color:#fff;border:1px solid var(--line);}
 .btn-ghost:hover{background:#294058;}
 .btn-green{background:var(--green);color:#fff;}
@@ -93,13 +99,28 @@ tr:hover td{background:var(--panel2);}
 .pill.part{background:rgba(241,181,61,.2);color:var(--amber);}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--panel);border:1px solid var(--cyan);color:#fff;padding:13px 18px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:999;display:none;max-width:340px;font-size:13px;}
 .verbadge{position:fixed;bottom:10px;left:10px;background:var(--green);color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;z-index:999;}
-/* LOGIN */
-.login-screen{position:fixed;inset:0;background:radial-gradient(circle at 30% 20%,#13263b,#0b141e 70%);display:flex;align-items:center;justify-content:center;z-index:2000;}
-.login-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:34px 30px;width:340px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.6);}
-.login-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;justify-content:center;}
-.login-logo .dot{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--cyan),#0066aa);display:flex;align-items:center;justify-content:center;font-size:18px;}
-.login-sub{text-align:center;color:var(--muted);font-size:12px;margin:8px 0 22px;}
-.login-btn{width:100%;justify-content:center;margin-top:20px;padding:12px;font-size:15px;}
+/* LOGIN · estilo NEXUSMED */
+.login-screen{position:fixed;inset:0;overflow:hidden;background:radial-gradient(1200px 600px at 20% -10%,#123b52 0%,rgba(18,59,82,0) 55%),radial-gradient(1000px 700px at 110% 120%,#0b3a46 0%,rgba(11,58,70,0) 55%),linear-gradient(160deg,#06101a 0%,#081826 55%,#06121c 100%);display:flex;align-items:center;justify-content:center;z-index:2000;padding:24px;}
+/* blobs de luz animados */
+.login-screen::before,.login-screen::after{content:"";position:absolute;border-radius:50%;filter:blur(90px);opacity:.5;z-index:0;}
+.login-screen::before{width:420px;height:420px;background:radial-gradient(circle,#22d3ee,transparent 70%);top:-120px;left:-80px;animation:floatA 11s ease-in-out infinite;}
+.login-screen::after{width:460px;height:460px;background:radial-gradient(circle,#0e7fb8,transparent 70%);bottom:-160px;right:-100px;animation:floatB 13s ease-in-out infinite;}
+@keyframes floatA{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,30px)}}
+@keyframes floatB{0%,100%{transform:translate(0,0)}50%{transform:translate(-40px,-30px)}}
+.login-box{position:relative;z-index:2;background:linear-gradient(160deg,rgba(18,32,48,.92),rgba(12,22,34,.92));backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(34,211,238,.18);border-radius:22px;padding:40px 34px 34px;width:380px;max-width:92vw;box-shadow:0 30px 80px -20px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.03) inset;animation:modalIn .4s ease;}
+/* hoja decorativa estilo NexusMed */
+.login-leaf{position:absolute;top:-26px;right:-18px;width:92px;height:92px;opacity:.9;z-index:3;filter:drop-shadow(0 8px 20px rgba(6,182,212,.5));animation:floatA 9s ease-in-out infinite;}
+.login-logo{display:flex;align-items:center;gap:12px;font-weight:900;font-size:24px;letter-spacing:.5px;justify-content:center;}
+.login-logo .dot{width:46px;height:46px;border-radius:14px;background:var(--grad-cyan);display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 8px 26px -6px rgba(6,182,212,.75);}
+.login-title{text-align:center;font-size:26px;font-weight:800;margin-top:22px;letter-spacing:.3px;background:linear-gradient(90deg,#eaf4fb,#9fe9f7);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.login-sub{text-align:center;color:var(--muted);font-size:12.5px;margin:7px 0 26px;line-height:1.5;}
+.login-box .field label{font-size:11.5px;letter-spacing:.3px;}
+.login-box .field input{background:rgba(7,17,27,.7);border:1px solid var(--line);border-radius:11px;padding:12px 13px;font-size:13.5px;transition:border-color .2s,box-shadow .2s;}
+.login-box .field input:focus{border-color:var(--cyan2);box-shadow:0 0 0 3px rgba(34,211,238,.15);}
+.login-btn{width:100%;justify-content:center;margin-top:24px;padding:14px;font-size:15px;letter-spacing:1px;text-transform:uppercase;border-radius:12px;}
+.login-link{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px;color:var(--cyan2);font-size:12.5px;cursor:pointer;opacity:.85;}
+.login-link:hover{opacity:1;text-decoration:underline;}
+.login-foot{text-align:center;color:var(--muted);font-size:11px;letter-spacing:.5px;margin-top:22px;opacity:.75;}
 .login-err{color:var(--red);font-size:12px;text-align:center;margin-top:12px;min-height:16px;font-weight:600;}
 /* PERMISOS checkbox */
 .perm-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;}
@@ -136,12 +157,20 @@ tr:hover td{background:var(--panel2);}
 <!-- LOGIN -->
 <div id="loginScreen" class="login-screen">
   <div class="login-box">
+    <svg class="login-leaf" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M54 10C28 10 12 26 12 48c0 2 .3 4 .8 6C34 52 50 36 54 10Z" fill="url(#lg1)"/>
+      <path d="M14 52C24 34 38 22 52 14" stroke="#07202b" stroke-width="2" stroke-linecap="round" opacity=".45"/>
+      <defs><linearGradient id="lg1" x1="12" y1="10" x2="54" y2="54" gradientUnits="userSpaceOnUse"><stop stop-color="#22d3ee"/><stop offset="1" stop-color="#0e7fb8"/></linearGradient></defs>
+    </svg>
     <div class="login-logo"><span class="dot">📁</span> ARCHIVO DIGITAL</div>
-    <p class="login-sub">Gestión Documental · IPS NIT 819004318</p>
-    <div class="field"><label>Usuario</label><input id="loginUser" autocomplete="off" placeholder="Usuario"></div>
-    <div class="field" style="margin-top:14px"><label>Contraseña</label><input id="loginPass" type="password" placeholder="Contraseña"></div>
+    <h2 class="login-title">Bienvenido</h2>
+    <p class="login-sub">Ingrese sus credenciales para acceder al sistema<br>Gestión Documental · IPS NIT 819004318</p>
+    <div class="field"><label>Usuario</label><input id="loginUser" autocomplete="off" placeholder="Ingrese su usuario"></div>
+    <div class="field" style="margin-top:16px"><label>Contraseña</label><input id="loginPass" type="password" placeholder="Ingrese su contraseña"></div>
     <button class="btn btn-cyan login-btn" id="btnLogin">Ingresar</button>
+    <div class="login-link" id="lnkCambiarPass">🔑 ¿Cambiar contraseña?</div>
     <div class="login-err" id="loginErr"></div>
+    <div class="login-foot">plataforma que conecta todo</div>
   </div>
 </div>
 
@@ -1046,6 +1075,7 @@ function aplicarSesion(){
 $('#btnLogin').addEventListener('click',doLogin);
 $('#loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 $('#loginUser').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+(function(){var _lk=$('#lnkCambiarPass'); if(_lk) _lk.addEventListener('click',function(){ uiAlert('🔑 Cambiar contraseña','Para cambiar tu contraseña comunícate con el <b>ADMINISTRADOR (maestro)</b>, quien puede actualizarla desde el panel de usuarios.'); });})();
 $('#btnLogout').addEventListener('click',()=>{
   localStorage.removeItem('archivo_digital_sesion');
   currentUser=null;$('#app').style.display='none';
