@@ -186,6 +186,9 @@ tr:hover td{background:var(--panel2);}
 .val-cmp td.mono{font-family:'Fira Code',monospace;color:#cfe3f2;}
 .val-cmp td.good{color:#7ee2a8;font-weight:700;}
 .val-cmp td.bad{color:#ff8f8f;font-weight:700;}
+.val-cmp td.only{color:#9fd3f0;}
+.val-foot2{margin-top:10px;font-size:11px;line-height:1.5;color:var(--muted);background:var(--panel2);border:1px dashed var(--line);border-radius:8px;padding:8px 11px;}
+.val-foot2 b{color:#cfe3f2;}
 .val-foot{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--line);}
 .btn-save{background:linear-gradient(135deg,#1f8a4c,#17663a);color:#eafff1;}
 .val-view{margin-top:10px;}
@@ -1252,20 +1255,23 @@ function valValidar(){
 }
 function valFase1(cuenta,porFactura,sinNumero){
   const sec=$('#valSec1'); sec.style.display=''; const cont=$('#valF1'); cont.innerHTML='';
+  const cargadas=Object.keys(porFactura);
   const esperadas=ccLotesDe(cuenta).map(valNormNum).filter(Boolean);
-  const setEsp={}; esperadas.forEach(n=>setEsp[n]=1);
-  const cargadas=Object.keys(porFactura); let okTotal=true;
+  let okTotal=true;
   function row(cls,ico,html){ const d=document.createElement('div'); d.className='val-row '+cls; d.innerHTML='<span class="ico"><i class="fas '+ico+'"></i></span><span>'+html+'</span>'; cont.appendChild(d); }
-  esperadas.forEach(n=>{ const g=porFactura[n];
-    if(!g){row('err','fa-circle-xmark','Falta soporte de la factura <b>'+valEsc(n)+'</b> (no se cargaron ni JSON ni XML).');okTotal=false;return;}
-    const falta=[]; if(!g.json)falta.push('JSON'); if(!g.xml)falta.push('XML');
-    if(falta.length){row('err','fa-circle-xmark','Factura <b>'+valEsc(n)+'</b>: falta el '+falta.join(' y el ')+'.');okTotal=false;}
-    else{row('ok','fa-circle-check','Factura <b>'+valEsc(n)+'</b>: JSON y XML presentes.');}
+  if(!cargadas.length && !(sinNumero||[]).length){ row('warn','fa-circle-question','Aún no se detecta ninguna factura. Adjunta el <b>.json</b> y el <b>.xml</b> de cada factura.'); return false; }
+  /* Lo importante: que cada factura detectada traiga su PAREJA .json + .xml */
+  cargadas.forEach(n=>{ const g=porFactura[n];
+    const falta=[]; if(!g.json)falta.push('.json'); if(!g.xml)falta.push('.xml');
+    if(falta.length){ row('err','fa-circle-xmark','Factura <b>'+valEsc(n)+'</b>: falta el '+falta.join(' y el ')+'. Se necesita la pareja <b>.json + .xml</b>.'); okTotal=false; }
+    else{ row('ok','fa-circle-check','Factura <b>'+valEsc(n)+'</b>: tiene su <b>.json</b> y su <b>.xml</b>.'); }
   });
-  cargadas.forEach(n=>{ if(!setEsp[n]){row('err','fa-triangle-exclamation','La factura <b>'+valEsc(n)+'</b> de los archivos cargados NO pertenece a esta cuenta de cobro.');okTotal=false;} });
-  (sinNumero||[]).forEach(a=>{row('warn','fa-circle-question','No se pudo leer el n° de factura en <b>'+valEsc(a.name)+'</b>'+(a.datos&&a.datos.error?' ('+valEsc(a.datos.error)+')':'')+'.');okTotal=false;});
-  if(!esperadas.length){row('warn','fa-circle-question','Esta cuenta no tiene facturas/lotes registrados. Usa “Editar facturas” para agregarlos.');okTotal=false;}
-  else if(okTotal)row('ok','fa-circle-check','<b>Fase 1 superada:</b> todos los soportes coinciden con la cuenta ('+esperadas.length+' factura'+(esperadas.length!==1?'s':'')+').');
+  (sinNumero||[]).forEach(a=>{ row('warn','fa-circle-question','No se pudo leer el n° de factura dentro de <b>'+valEsc(a.name)+'</b>'+(a.datos&&a.datos.error?' ('+valEsc(a.datos.error)+')':'')+'. Revísalo antes de continuar.'); okTotal=false; });
+  /* La relación con la cuenta es solo informativa: el n° de factura NO tiene que ser igual al n° de lote */
+  if(esperadas.length){
+    if(cargadas.length===esperadas.length){ row('ok','fa-circle-info','La cuenta espera <b>'+esperadas.length+'</b> factura'+(esperadas.length!==1?'s':'')+' y cargaste <b>'+cargadas.length+'</b>.'); }
+    else{ row('warn','fa-triangle-exclamation','La cuenta tiene <b>'+esperadas.length+'</b> lote(s) ('+valEsc(esperadas.join(', '))+') y cargaste <b>'+cargadas.length+'</b> factura(s) ('+valEsc(cargadas.join(', '))+'). Verifica que no falte ninguna. <i>(solo aviso, no bloquea la descarga)</i>'); }
+  }
   return okTotal;
 }
 /* VAL_ANCHOR2 */
@@ -1277,21 +1283,29 @@ function valFase2(porFactura){
   sec.style.display=''; let okTotal=true;
   pares.forEach(n=>{ const g=porFactura[n]; const J=g.json.datos,X=g.xml.datos;
     const card=document.createElement('div'); card.className='val-fcard';
-    const errores=[]; const filas=[];
-    function cmp(label,vj,vx,tipo){
+    const errores=[]; const avisos=[]; const filas=[];
+    function cmp(label,vj,vx,tipo,clave){
       const tj=(vj!=null&&vj!==''),tx=(vx!=null&&vx!=='');
       let estado,clase;
       if(!tj&&!tx){estado='sin dato';clase='';}
-      else if(tj&&tx){ let igual=(tipo==='num')?(valNum2(vj)===valNum2(vx)):(valNormNum(vj)===valNormNum(vx)); igual=igual||(tipo==='num'&&Math.abs((valNum2(vj)||0)-(valNum2(vx)||0))<0.5); estado=igual?'coincide':'DIFIERE';clase=igual?'good':'bad'; if(!igual)errores.push(label); }
-      else{estado='solo en '+(tj?'JSON':'XML');clase='';}
+      else if(tj&&tx){ let igual=(tipo==='num')?(Math.abs((valNum2(vj)||0)-(valNum2(vx)||0))<0.5):(valNormNum(vj)===valNormNum(vx)); estado=igual?'coincide':'DIFIERE';clase=igual?'good':'bad'; if(!igual){ if(clave)errores.push(label); else avisos.push(label); } }
+      else{ estado='solo en '+(tj?'JSON':'XML'); clase='only'; }
       const fj=(tipo==='num'&&tj)?valPesos(vj):(tj?valEsc(vj):'—');
       const fx=(tipo==='num'&&tx)?valPesos(vx):(tx?valEsc(vx):'—');
-      filas.push('<tr><td>'+label+'</td><td class="mono">'+fj+'</td><td class="mono">'+fx+'</td><td class="'+clase+'">'+estado+'</td></tr>');
+      filas.push('<tr><td>'+(clave?'<b>'+label+'</b>':label)+'</td><td class="mono">'+fj+'</td><td class="mono">'+fx+'</td><td class="'+clase+'">'+estado+'</td></tr>');
     }
-    if(J.error)errores.push('JSON'); if(X.error)errores.push('XML');
-    cmp('N° de factura',J.num,X.num,'txt'); cmp('CUFE / CUDE',J.cufe,X.cufe,'txt'); cmp('Total',J.total,X.total,'num'); cmp('Subtotal',J.subtotal,X.subtotal,'num'); cmp('IVA',J.iva,X.iva,'num'); cmp('ICA',J.ica,X.ica,'num');
+    if(J.error)errores.push('JSON ilegible'); if(X.error)errores.push('XML ilegible');
+    /* Campos CLAVE (deben coincidir, si difieren bloquean): */
+    cmp('N° de factura',J.num,X.num,'txt',true);
+    cmp('Total',J.total,X.total,'num',true);
+    /* Campos INFORMATIVOS (normalmente solo vienen en el XML; no bloquean): */
+    cmp('CUFE / CUDE',J.cufe,X.cufe,'txt',false);
+    cmp('Subtotal',J.subtotal,X.subtotal,'num',false);
+    cmp('IVA',J.iva,X.iva,'num',false);
+    cmp('ICA',J.ica,X.ica,'num',false);
     const hayError=errores.length>0; if(hayError)okTotal=false;
-    card.innerHTML='<div class="ftit"><b><i class="fas fa-file-invoice-dollar" style="margin-right:6px;color:#48a0d5"></i>Factura '+valEsc(n)+'</b><span class="val-row '+(hayError?'err':'ok')+'" style="margin:0;padding:3px 10px">'+(hayError?'<i class="fas fa-circle-xmark"></i> '+errores.length+' discrepancia(s)':'<i class="fas fa-circle-check"></i> Sin discrepancias')+'</span></div>'+(J.error?'<div class="val-row err"><span class="ico"><i class="fas fa-bug"></i></span><span>'+valEsc(J.error)+'</span></div>':'')+(X.error?'<div class="val-row err"><span class="ico"><i class="fas fa-bug"></i></span><span>'+valEsc(X.error)+'</span></div>':'')+'<table class="val-cmp"><thead><tr><th>Campo</th><th>JSON</th><th>XML</th><th>Resultado</th></tr></thead><tbody>'+filas.join('')+'</tbody></table>';
+    const estadoTxt=hayError?('<i class="fas fa-circle-xmark"></i> '+errores.length+' diferencia(s) en campos clave'):(avisos.length?('<i class="fas fa-circle-exclamation"></i> Campos clave OK · '+avisos.length+' aviso(s)'):'<i class="fas fa-circle-check"></i> JSON y XML coinciden');
+    card.innerHTML='<div class="ftit"><b><i class="fas fa-file-invoice-dollar" style="margin-right:6px;color:#48a0d5"></i>Factura '+valEsc(n)+'</b><span class="val-row '+(hayError?'err':'ok')+'" style="margin:0;padding:3px 10px">'+estadoTxt+'</span></div>'+(J.error?'<div class="val-row err"><span class="ico"><i class="fas fa-bug"></i></span><span>'+valEsc(J.error)+'</span></div>':'')+(X.error?'<div class="val-row err"><span class="ico"><i class="fas fa-bug"></i></span><span>'+valEsc(X.error)+'</span></div>':'')+'<table class="val-cmp"><thead><tr><th>Campo</th><th>JSON (RIPS/FEV)</th><th>XML (DIAN)</th><th>Resultado</th></tr></thead><tbody>'+filas.join('')+'</tbody></table>'+'<div class="val-foot2"><i class="fas fa-info-circle"></i> Lo que debe coincidir entre JSON y XML es el <b>N° de factura</b> y el <b>Total</b>. El <b>CUFE</b>, <b>Subtotal</b>, <b>IVA</b> e <b>ICA</b> casi siempre vienen solo en el XML de la DIAN (el JSON de RIPS no los trae): por eso aparecen como “solo en XML” y <u>no bloquean</u> la descarga.</div>';
     cont.appendChild(card);
   });
   return okTotal;
@@ -1300,24 +1314,29 @@ async function valDescargarZip(){
   if(!VAL||!VAL.fase1ok||!VAL.fase2ok){toast('⚠️ Aún hay validaciones pendientes.');return;}
   if(typeof JSZip==='undefined'){toast('❌ El compresor aún carga, intenta en 5 segundos.');return;}
   const cuenta=VAL.cuenta; const nit=($('#cfgNit').value||'').trim()||'NIT';
-  const esperadas=ccLotesDe(cuenta).map(valNormNum).filter(Boolean);
+  const lotes=ccLotesDe(cuenta).map(valNormNum).filter(Boolean);
+  /* Empaquetamos por las facturas REALES detectadas (par .json + .xml), no por el n° de lote */
+  const facturas=Object.keys(VAL.porFactura).filter(n=>VAL.porFactura[n].json&&VAL.porFactura[n].xml);
   const bz=$('#valBtnZip'); const est=$('#valEstado'); const t0=bz.innerHTML;
   bz.disabled=true; bz.innerHTML='<i class="fas fa-spinner fa-spin"></i> Preparando…';
   const zip=new JSZip(); const fXML=zip.folder('XML'); const fSOP=zip.folder('SOPORTES');
   let nXml=0,nPdf=0,fallos=0; let root=null;
   if(driveOn){ try{root=await ensureFevRoot();}catch(e){root=null;} }
   try{
-    for(let i=0;i<esperadas.length;i++){
-      const n=esperadas[i];
-      est.innerHTML='<span style="color:#9fd3f0">Preparando factura '+(i+1)+' de '+esperadas.length+' ('+valEsc(n)+')…</span>';
+    for(let i=0;i<facturas.length;i++){
+      const n=facturas[i];
+      /* El n° de factura (p.ej. HLNG502061) suele diferir del n° de lote (p.ej. 426899).
+         Los PDF de soporte viven en Drive bajo la carpeta del LOTE, así que mapeamos por posición. */
+      const lote=(lotes.length===facturas.length)?lotes[i]:(lotes[i]||n);
+      est.innerHTML='<span style="color:#9fd3f0">Preparando factura '+(i+1)+' de '+facturas.length+' ('+valEsc(n)+')…</span>';
       await new Promise(r=>setTimeout(r,0));
       const g=VAL.porFactura[n];
-      if(g&&g.json&&g.xml){ const base='FEV_'+nit+'_'+n; const sx=fXML.folder(n); sx.file(base+'.json',g.json.texto); sx.file(base+'.xml',g.xml.texto); nXml++; }
+      const base='FEV_'+nit+'_'+n; const sx=fXML.folder(n); sx.file(base+'.json',g.json.texto); sx.file(base+'.xml',g.xml.texto); nXml++;
       const ss=fSOP.folder(n);
-      if(root){ try{ const folderId=await findFolder(String(n),root);
+      if(root){ try{ let folderId=await findFolder(String(n),root); if(!folderId&&lote&&lote!==n)folderId=await findFolder(String(lote),root);
         if(folderId){ const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name,mimeType)&spaces=drive'); const j=await r.json();
           for(const f of (j.files||[])){ if(f.mimeType&&f.mimeType.indexOf('folder')>=0)continue; try{const bytes=await descargarPdf(f.id); ss.file(f.name,bytes); nPdf++;}catch(e){fallos++;} }
-        } else { ss.file('_SIN_CARPETA_EN_DRIVE.txt','No se encontró la carpeta "'+n+'" en Google Drive.'); }
+        } else { ss.file('_SIN_CARPETA_EN_DRIVE.txt','No se encontró en Google Drive la carpeta de la factura "'+n+'" ni la del lote "'+lote+'".'); }
       }catch(e){fallos++;} }
       else { ss.file('_SIN_DRIVE.txt','Conéctate a Google Drive para incluir los PDF de soporte de esta factura.'); }
     }
