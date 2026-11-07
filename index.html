@@ -194,6 +194,27 @@ tr:hover td{background:var(--panel2);}
 .val-ln{padding:10px 8px;color:#55708a;font-family:'Fira Code',monospace;font-size:12px;text-align:right;white-space:pre;overflow:hidden;background:#081019;user-select:none;}
 .val-txt{flex:1;background:transparent;border:0;color:#c9f0ff;font-family:'Fira Code',monospace;font-size:12px;padding:10px;resize:vertical;min-height:220px;outline:none;line-height:1.5;white-space:pre;}
 .btn.mini{padding:6px 11px;font-size:11.5px;}
+/* ===== MODULO IPS ===== */
+.ips-note{display:flex;align-items:flex-start;gap:9px;background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.22);color:#bfe9f7;border-radius:10px;padding:10px 13px;font-size:12px;line-height:1.5;}
+.ips-note i{color:var(--cyan2);margin-top:2px;}
+.ips-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:14px;}
+.ips-card{position:relative;background:linear-gradient(160deg,rgba(18,32,48,.92),rgba(12,22,34,.92));border:1px solid var(--line);border-radius:16px;padding:16px;transition:.18s;}
+.ips-card:hover{border-color:rgba(34,211,238,.35);box-shadow:0 10px 30px -12px rgba(6,182,212,.5);}
+.ips-card.active{border-color:var(--cyan2);box-shadow:var(--glow-cyan);}
+.ips-card .ips-top{display:flex;align-items:center;gap:11px;margin-bottom:12px;}
+.ips-logo{width:44px;height:44px;border-radius:13px;background:var(--grad-cyan);display:flex;align-items:center;justify-content:center;font-size:20px;color:#04121a;flex-shrink:0;box-shadow:0 6px 18px -6px rgba(6,182,212,.6);}
+.ips-name{font-weight:800;font-size:15px;color:#eaf4fb;line-height:1.2;word-break:break-word;}
+.ips-nit{font-size:11.5px;color:var(--cyan2);font-weight:700;letter-spacing:.3px;margin-top:3px;}
+.ips-active-badge{position:absolute;top:12px;right:12px;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#04121a;background:var(--grad-cyan);padding:3px 9px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;}
+.ips-data{display:flex;flex-direction:column;gap:7px;margin:4px 0 14px;}
+.ips-data .r{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:#cfe3f2;line-height:1.4;word-break:break-word;}
+.ips-data .r i{width:15px;text-align:center;color:var(--cyan2);margin-top:2px;flex-shrink:0;}
+.ips-data .r span.muted{color:var(--muted);font-style:italic;}
+.ips-acts{display:flex;gap:7px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px;}
+.ips-acts .btn{padding:6px 11px;font-size:11.5px;}
+.field input[readonly],.field select:disabled{opacity:.7;cursor:not-allowed;background:#0a141e;}
+.field label i{color:var(--cyan2);margin-right:4px;width:14px;text-align:center;}
+.lock-note{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--amber);margin-top:5px;font-weight:600;}
 .pdf-bx iframe{flex:1;border:0;width:100%;background:#fff;}
 </style>
 </head>
@@ -270,6 +291,7 @@ tr:hover td{background:var(--panel2);}
     <div class="side-item active" data-view="documentos" data-perm="documentos"><span class="ic">📂</span> Documentos</div>
     <div class="side-item" data-view="busqueda" data-perm="busqueda"><span class="ic">🔍</span> Búsqueda</div>
     <div class="side-item" data-view="cuentas" data-perm="cuentas"><span class="ic">🧾</span> Cuentas de cobro</div>
+    <div class="side-item" data-view="ips" data-perm="ips"><span class="ic">🏥</span> IPS</div>
     <div class="side-item" data-view="configuraciones" data-perm="configuraciones"><span class="ic">⚙️</span> Configuraciones</div>
   </aside>
 
@@ -287,16 +309,18 @@ tr:hover td{background:var(--panel2);}
             <input id="cfgLote" value="" placeholder="Escribe el N° del lote">
           </div>
           <div class="field">
-            <label>NIT de la IPS</label>
-            <input id="cfgNit" value="819004318">
+            <label>NIT de la IPS (fijo)</label>
+            <input id="cfgNit" value="819004318" readonly title="El NIT se define en el módulo IPS">
+            <div class="lock-note"><i class="fas fa-lock"></i> Se configura en el módulo <b>IPS</b></div>
           </div>
           <div class="field">
-            <label>Bloque de separación</label>
-            <select id="cfgSep">
+            <label>Bloque de separación (fijo)</label>
+            <select id="cfgSep" disabled title="La separación se define en el módulo IPS">
               <option value="_">Guión bajo _</option>
               <option value="-">Guión -</option>
               <option value="">Sin separador</option>
             </select>
+            <div class="lock-note"><i class="fas fa-lock"></i> Se configura en el módulo <b>IPS</b></div>
           </div>
         </div>
         <div class="btn-row">
@@ -380,6 +404,7 @@ tr:hover td{background:var(--panel2);}
             <label class="perm-chk"><input type="checkbox" value="documentos" checked> Documentos</label>
             <label class="perm-chk"><input type="checkbox" value="busqueda"> Búsqueda</label>
             <label class="perm-chk"><input type="checkbox" value="cuentas"> Cuentas de cobro</label>
+            <label class="perm-chk"><input type="checkbox" value="ips"> IPS</label>
             <label class="perm-chk"><input type="checkbox" value="configuraciones"> Configuraciones</label>
           </div>
         </div>
@@ -388,6 +413,33 @@ tr:hover td{background:var(--panel2);}
       <div class="card-box">
         <div class="sec-title">Usuarios y permisos</div>
         <div id="tablaUsuarios"></div>
+      </div>
+    </section>
+
+    <!-- ================= IPS ================= -->
+    <section class="view" id="view-ips">
+      <div class="card-box">
+        <div class="sec-title">🏥 Registrar IPS</div>
+        <div class="ips-note"><i class="fas fa-circle-info"></i><div>Aquí registras la <b>identidad de la IPS</b> (NIT, nombre y datos de contacto). El <b>NIT</b> y el <b>bloque de separación</b> que definas aquí son los que usa todo el sistema para nombrar los archivos; por eso en <b>Documentos</b> quedan visibles pero <b>bloqueados</b>, para evitar errores de renombración.</div></div>
+        <div class="grid-cfg" style="grid-template-columns:1fr 1fr;margin-top:14px">
+          <div class="field"><label><i class="fas fa-hospital"></i> Nombre de la IPS</label><input id="ipsNombre" autocomplete="off" placeholder="Ej: Hospital de Granada – Admisiones"></div>
+          <div class="field"><label><i class="fas fa-id-card"></i> NIT</label><input id="ipsNit" autocomplete="off" inputmode="numeric" placeholder="Ej: 819004318"></div>
+          <div class="field"><label><i class="fas fa-envelope"></i> Correo</label><input id="ipsCorreo" autocomplete="off" placeholder="correo@dominio.com"></div>
+          <div class="field"><label><i class="fas fa-phone"></i> Teléfono</label><input id="ipsTel" autocomplete="off" placeholder="Ej: 320 000 0000"></div>
+          <div class="field" style="grid-column:1/-1"><label><i class="fas fa-location-dot"></i> Dirección</label><input id="ipsDir" autocomplete="off" placeholder="Ej: Calle 00 # 00-00, Granada"></div>
+          <div class="field"><label><i class="fas fa-grip-lines"></i> Bloque de separación</label>
+            <select id="ipsSep"><option value="_">Guión bajo _</option><option value="-">Guión -</option><option value="">Sin separador</option></select>
+          </div>
+        </div>
+        <div id="ipsEditNote"></div>
+        <div class="btn-row">
+          <button class="btn btn-cyan" id="btnIpsGuardar">➕ Registrar IPS</button>
+          <button class="btn btn-ghost" id="btnIpsCancelar" style="display:none">Cancelar edición</button>
+        </div>
+      </div>
+      <div class="card-box">
+        <div class="sec-title">IPS registradas</div>
+        <div class="ips-grid" id="ipsGrid"></div>
       </div>
     </section>
   </main>
@@ -470,6 +522,7 @@ $$('.side-item').forEach(it=>it.addEventListener('click',()=>{
   $('#view-'+it.dataset.view).classList.add('active');
   if(it.dataset.view==='busqueda'){ renderBusqueda(); if(driveOn) sincronizarBusquedaConDrive(); }
   if(it.dataset.view==='cuentas') renderCuentas();
+  if(it.dataset.view==='ips') renderIps();
   if(it.dataset.view==='configuraciones') renderUsuarios();
 }));
 
@@ -1292,9 +1345,9 @@ async function valDescargarZip(){
 
 /* ================= SEGURIDAD / USUARIOS ================= */
 const LS_USERS='archivo_digital_usuarios';
-const MASTER={user:'JDEAGUAS',pass:'123',role:'MAESTRO',perms:['documentos','busqueda','cuentas','configuraciones'],master:true};
+const MASTER={user:'JDEAGUAS',pass:'123',role:'MAESTRO',perms:['documentos','busqueda','cuentas','ips','configuraciones'],master:true};
 let currentUser=null;
-const SECCIONES={documentos:'Documentos',busqueda:'Búsqueda',cuentas:'Cuentas de cobro',configuraciones:'Configuraciones'};
+const SECCIONES={documentos:'Documentos',busqueda:'Búsqueda',cuentas:'Cuentas de cobro',ips:'IPS',configuraciones:'Configuraciones'};
 
 function getUsers(){return JSON.parse(localStorage.getItem(LS_USERS)||'[]');}
 function saveUsers(u){localStorage.setItem(LS_USERS,JSON.stringify(u));}
@@ -1316,6 +1369,7 @@ function aplicarSesion(){
   $('#curUserName').textContent=currentUser.user.toUpperCase();
   $('#curUserRole').textContent=currentUser.master?'MAESTRO':'USUARIO';
   $('#curUserAvatar').textContent=currentUser.user.charAt(0).toUpperCase();
+  if(typeof syncNitFromIps==='function')syncNitFromIps();
   // Solo el ADMINISTRADOR (maestro) ve el botón de conectar/cambiar Drive
   const bd=$('#btnConectarDrive');
   if(bd) bd.style.display = currentUser.master ? '' : 'none';
@@ -1360,6 +1414,122 @@ function renderUsuarios(){
   cont.innerHTML=`<table><thead><tr><th>Usuario</th><th>Rol</th><th>Permisos</th><th></th></tr></thead><tbody>${masterRow}${rows}</tbody></table>`;
 }
 window.delUser=i=>{const u=getUsers();u.splice(i,1);saveUsers(u);renderUsuarios();toast('🗑️ Usuario eliminado.');};
+
+/* ================= MODULO IPS ================= */
+const LS_IPS='archivo_digital_ips';
+let ipsEditId=null;
+function getIps(){try{return JSON.parse(localStorage.getItem(LS_IPS)||'[]');}catch(e){return [];}}
+function saveIps(l){localStorage.setItem(LS_IPS,JSON.stringify(l));}
+function ipsActiva(){const l=getIps();return l.find(x=>x.activa)||l[0]||null;}
+function seedIps(){
+  let l=getIps();
+  if(!l.length){
+    const nitPrev=((($('#cfgNit')&&$('#cfgNit').value)||'819004318')+'').trim();
+    const sepPrev=(($('#cfgSep')&&$('#cfgSep').value)||'_');
+    l=[{id:'ips'+Date.now(),nombre:'IPS principal',nit:nitPrev,correo:'',telefono:'',direccion:'',sep:sepPrev,activa:true,fecha:new Date().toLocaleString('es-CO')}];
+    saveIps(l);
+  }
+  return l;
+}
+function syncNitFromIps(){
+  seedIps();
+  const a=ipsActiva(); if(!a)return;
+  const nitI=$('#cfgNit'); if(nitI)nitI.value=a.nit;
+  const sepI=$('#cfgSep'); if(sepI && typeof a.sep==='string')sepI.value=a.sep;
+  if(typeof updateStatus==='function')updateStatus();
+  const ls=document.querySelector('.login-sub');
+  if(ls)ls.innerHTML='Ingrese sus credenciales para acceder al sistema<br>Gestión Documental · '+(a.nombre?valEsc(a.nombre)+' · ':'')+'NIT '+valEsc(a.nit);
+}
+function ipsLimpiarForm(){
+  ipsEditId=null;
+  ['ipsNombre','ipsNit','ipsCorreo','ipsTel','ipsDir'].forEach(id=>{const e=$('#'+id);if(e)e.value='';});
+  const s=$('#ipsSep'); if(s)s.value=(ipsActiva()&&ipsActiva().sep)||'_';
+  const nit=$('#ipsNit'); if(nit)nit.removeAttribute('readonly');
+  const en=$('#ipsEditNote'); if(en)en.innerHTML='';
+  $('#btnIpsGuardar').innerHTML='➕ Registrar IPS';
+  $('#btnIpsCancelar').style.display='none';
+}
+function ipsEditar(id){
+  const x=getIps().find(i=>i.id===id); if(!x)return;
+  ipsEditId=id;
+  $('#ipsNombre').value=x.nombre||'';
+  $('#ipsNit').value=x.nit||'';
+  $('#ipsCorreo').value=x.correo||'';
+  $('#ipsTel').value=x.telefono||'';
+  $('#ipsDir').value=x.direccion||'';
+  $('#ipsSep').value=typeof x.sep==='string'?x.sep:'_';
+  const nit=$('#ipsNit'); if(nit)nit.setAttribute('readonly','readonly');
+  $('#ipsEditNote').innerHTML='<div class="lock-note"><i class="fas fa-lock"></i> El NIT no se puede cambiar al editar, para no dañar la nomenclatura de los archivos ya guardados. Si necesitas otro NIT, registra una IPS nueva.</div>';
+  $('#btnIpsGuardar').innerHTML='💾 Guardar cambios';
+  $('#btnIpsCancelar').style.display='';
+  const sec=$('#view-ips'); if(sec)sec.scrollIntoView({behavior:'smooth',block:'start'});
+}
+window.ipsEditar=ipsEditar;
+window.ipsActivar=function(id){
+  const l=getIps().map(x=>({...x,activa:x.id===id}));
+  saveIps(l);renderIps();syncNitFromIps();
+  const a=l.find(x=>x.id===id); toast('✅ IPS activa: '+(a?(a.nombre||a.nit):''));
+};
+window.ipsEliminar=async function(id){
+  const x=getIps().find(i=>i.id===id); if(!x)return;
+  const ok=await uiConfirm({title:'🗑️ Eliminar IPS',msg:'¿Eliminar <b>'+valEsc(x.nombre||x.nit)+'</b> (NIT '+valEsc(x.nit)+')?<br>Esto no borra nada de Google Drive, solo quita el registro.',buttons:[{text:'Eliminar',value:true,cls:'btn-ghost'},{text:'Cancelar',value:false,cls:'btn-cyan'}]});
+  if(!ok)return;
+  let l=getIps().filter(i=>i.id!==id);
+  if(l.length && !l.some(i=>i.activa))l[0].activa=true;
+  saveIps(l);
+  if(ipsEditId===id)ipsLimpiarForm();
+  renderIps();syncNitFromIps();
+  toast('🗑️ IPS eliminada del registro.');
+};
+function renderIps(){
+  seedIps();
+  const cont=$('#ipsGrid'); if(!cont)return;
+  const l=getIps();
+  if(!l.length){cont.innerHTML='<div class="empty">Aún no hay IPS registradas. Llena el formulario de arriba para crear la primera.</div>';return;}
+  cont.innerHTML=l.map(x=>{
+    const act=x.activa;
+    const row=(ic,val,ph)=>'<div class="r"><i class="fas '+ic+'"></i>'+(val?('<span>'+valEsc(val)+'</span>'):('<span class="muted">'+ph+'</span>'))+'</div>';
+    return '<div class="ips-card'+(act?' active':'')+'">'+
+      (act?'<span class="ips-active-badge"><i class="fas fa-circle-check"></i> Activa</span>':'')+
+      '<div class="ips-top"><div class="ips-logo"><i class="fas fa-hospital"></i></div>'+
+      '<div><div class="ips-name">'+valEsc(x.nombre||'IPS sin nombre')+'</div><div class="ips-nit"><i class="fas fa-id-card"></i> NIT '+valEsc(x.nit)+'</div></div></div>'+
+      '<div class="ips-data">'+
+        row('fa-envelope',x.correo,'Sin correo')+
+        row('fa-phone',x.telefono,'Sin teléfono')+
+        row('fa-location-dot',x.direccion,'Sin dirección')+
+        row('fa-grip-lines','Separador: '+(x.sep===''?'(ninguno)':x.sep),'')+
+      '</div>'+
+      '<div class="ips-acts">'+
+        (act?'':'<button class="btn btn-cyan" onclick="ipsActivar(\''+x.id+'\')"><i class="fas fa-circle-check"></i> Activar</button>')+
+        '<button class="btn btn-ghost" onclick="ipsEditar(\''+x.id+'\')"><i class="fas fa-pen"></i> Editar</button>'+
+        '<button class="btn btn-ghost" onclick="ipsEliminar(\''+x.id+'\')"><i class="fas fa-trash"></i></button>'+
+      '</div></div>';
+  }).join('');
+}
+(function(){
+  const g=$('#btnIpsGuardar'); if(g)g.addEventListener('click',()=>{
+    const nombre=$('#ipsNombre').value.trim();
+    const nit=$('#ipsNit').value.trim();
+    const correo=$('#ipsCorreo').value.trim();
+    const tel=$('#ipsTel').value.trim();
+    const dir=$('#ipsDir').value.trim();
+    const spv=$('#ipsSep').value;
+    if(!nombre){toast('⚠️ Escribe el nombre de la IPS.');return;}
+    if(!nit||!/^\d{5,}$/.test(nit.replace(/[^\d]/g,''))){toast('⚠️ Escribe un NIT válido (solo números).');return;}
+    if(correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)){toast('⚠️ El correo no tiene un formato válido.');return;}
+    let l=getIps();
+    if(ipsEditId){
+      const x=l.find(i=>i.id===ipsEditId); if(x){x.nombre=nombre;x.correo=correo;x.telefono=tel;x.direccion=dir;x.sep=spv;}
+      saveIps(l);toast('💾 IPS actualizada.');
+    }else{
+      if(l.some(i=>String(i.nit)===String(nit))){toast('⚠️ Ya existe una IPS con ese NIT.');return;}
+      const nueva={id:'ips'+Date.now(),nombre:nombre,nit:nit,correo:correo,telefono:tel,direccion:dir,sep:spv,activa:!l.length,fecha:new Date().toLocaleString('es-CO')};
+      l.push(nueva);saveIps(l);toast('✅ IPS "'+nombre+'" registrada.');
+    }
+    ipsLimpiarForm();renderIps();syncNitFromIps();
+  });
+  const c=$('#btnIpsCancelar'); if(c)c.addEventListener('click',ipsLimpiarForm);
+})();
 
 /* ================= GOOGLE DRIVE ================= */
 const GCLIENT_ID='523064756999-mgtbvhnh32puucqh13canqn67lq4dogn.apps.googleusercontent.com';
@@ -1634,11 +1804,13 @@ if($('#btnConectarDrive'))$('#btnConectarDrive').addEventListener('click',conect
 updateStatus();
 dedupeLotes();
 actualizarTotal();
+seedIps();
+syncNitFromIps();
 (function restoreSesion(){
   try{
     const s=JSON.parse(localStorage.getItem('archivo_digital_sesion')||'null');
     if(s && s.user){
-      currentUser={user:s.user,perms:s.perms||['documentos','busqueda','cuentas','configuraciones'],master:!!s.master};
+      currentUser={user:s.user,perms:s.perms||['documentos','busqueda','cuentas','ips','configuraciones'],master:!!s.master};
       $('#loginScreen').style.display='none';
       $('#app').style.display='block';
       aplicarSesion();
