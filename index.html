@@ -1829,7 +1829,13 @@ syncNitFromIps();
   try{
     const s=JSON.parse(localStorage.getItem('archivo_digital_sesion')||'null');
     if(s && s.user){
-      currentUser={user:s.user,perms:s.perms||['documentos','busqueda','cuentas','ips','configuraciones'],master:!!s.master};
+      let master=!!s.master || String(s.user).toUpperCase()===MASTER.user;
+      let perms;
+      if(master){ perms=MASTER.perms.slice(); } /* el maestro SIEMPRE tiene todas las secciones (incl. IPS) */
+      else { const m=getUsers().find(x=>x.user.toUpperCase()===String(s.user).toUpperCase()); perms=(m&&m.perms)?m.perms.slice():(s.perms||['documentos','busqueda','cuentas','ips','configuraciones']); }
+      currentUser={user:s.user,perms:perms,master:master};
+      /* re-guardamos la sesión ya rehidratada, para que no vuelva a quedar desactualizada */
+      localStorage.setItem('archivo_digital_sesion',JSON.stringify({user:currentUser.user,perms:currentUser.perms,master:currentUser.master}));
       $('#loginScreen').style.display='none';
       $('#app').style.display='block';
       aplicarSesion();
