@@ -526,7 +526,13 @@ $('#btnCrear').addEventListener('click',async()=>{
     try{
       const root=await ensureFevRoot();
       const existe=await findFolder(String(lote),root);
-      if(!existe){ await createFolder(String(lote),root); toast('✅ Carpeta del lote "'+lote+'" creada en Google Drive.'); }
+      if(!existe){
+        await createFolder(String(lote),root);
+        /* Carpeta NUEVA: limpiar las tarjetas donde se montan los soportes */
+        DOC_TYPES.forEach(d=>{slots[d.id]=[];renderSlot(d.id);});
+        updateStatus();
+        toast('✅ Carpeta del lote "'+lote+'" creada en Google Drive. Tarjetas limpias para cargar soportes.');
+      }
       else{ await uiAlert('📁 Carpeta ya existe','La carpeta del lote <b>"'+lote+'"</b> ya está creada en Google Drive. No se creó otra.'); }
       await refrescarEstadoDesdeDrive(lote);
     }catch(e){toast('❌ No se pudo crear en Drive: '+e.message);}
