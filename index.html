@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
 :root{
   --bg:#070f18; --panel:#101f30; --panel2:#182c42; --line:#22364d;
@@ -151,6 +152,49 @@ tr:hover td{background:var(--panel2);}
 .pdf-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid #24323f;flex-wrap:wrap;}
 .pdf-bar b{font-size:14px;color:#eaf2f8;word-break:break-all;}
 .pdf-bx iframe{flex:1;border:0;width:100%;background:#fff;}
+/* ===== VALIDADOR DE SOPORTES JSON/XML (estilo gestor general) ===== */
+.val-ov{position:fixed;inset:0;background:rgba(4,10,16,.82);display:none;align-items:flex-start;justify-content:center;z-index:100001;padding:28px 16px;overflow:auto;}
+.val-ov.show{display:flex;}
+.val-box{background:linear-gradient(160deg,#101f30,#0b1623);border:1px solid rgba(34,211,238,.18);border-radius:18px;width:min(920px,96vw);box-shadow:0 30px 80px -20px rgba(0,0,0,.75);animation:modalIn .25s ease;margin:auto;}
+.val-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 22px 12px;border-bottom:1px solid var(--line);}
+.val-head h3{font-size:17px;color:#eaf4fb;display:flex;align-items:center;gap:8px;}
+.val-sub{color:var(--muted);font-size:12.5px;margin-top:5px;line-height:1.5;}
+.val-close{background:none;border:none;color:#9fb3c8;font-size:26px;line-height:1;cursor:pointer;padding:0 4px;}
+.val-close:hover{color:#fff;}
+.val-body{padding:18px 22px 22px;}
+.val-drop{border:2px dashed var(--line);border-radius:14px;padding:22px 16px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s;display:flex;flex-direction:column;align-items:center;gap:6px;}
+.val-drop:hover,.val-drop.over{border-color:var(--cyan2);background:rgba(34,211,238,.07);color:#cfeaf7;}
+.val-drop i{font-size:30px;color:var(--cyan2);}
+.val-drop b{font-size:14px;color:#eaf4fb;}
+.val-drop small{font-size:11.5px;max-width:460px;}
+.val-files{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+.val-chip{display:inline-flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:12px;color:#cfe3f2;}
+.val-chip .j{color:#f39c12;}.val-chip .x{color:#22d3ee;}
+.val-chip .rm{cursor:pointer;color:#ff9b9b;}
+.val-sec{margin-top:18px;}
+.val-sec h4{font-size:13px;color:#9fd3f0;display:flex;align-items:center;gap:8px;margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px;}
+.val-row{display:flex;align-items:flex-start;gap:9px;padding:8px 12px;border-radius:9px;font-size:12.5px;margin-bottom:6px;line-height:1.5;}
+.val-row .ico{margin-top:1px;}
+.val-row.ok{background:rgba(40,167,69,.12);border:1px solid rgba(40,167,69,.35);color:#9fe7b5;}
+.val-row.err{background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);color:#ffb4b4;}
+.val-row.warn{background:rgba(241,181,61,.12);border:1px solid rgba(241,181,61,.35);color:#f3d58a;}
+.val-fcard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;}
+.val-fcard .ftit{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:14px;}
+.val-cmp{width:100%;border-collapse:collapse;font-size:12px;}
+.val-cmp th,.val-cmp td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);}
+.val-cmp th{color:var(--muted);font-size:10.5px;text-transform:uppercase;}
+.val-cmp td.mono{font-family:'Fira Code',monospace;color:#cfe3f2;}
+.val-cmp td.good{color:#7ee2a8;font-weight:700;}
+.val-cmp td.bad{color:#ff8f8f;font-weight:700;}
+.val-foot{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--line);}
+.btn-save{background:linear-gradient(135deg,#1f8a4c,#17663a);color:#eafff1;}
+.val-view{margin-top:10px;}
+.val-view-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12px;color:#cfe3f2;margin-bottom:6px;}
+.val-code{display:flex;background:#0a1420;border:1px solid var(--line);border-radius:10px;overflow:hidden;max-height:320px;}
+.val-ln{padding:10px 8px;color:#55708a;font-family:'Fira Code',monospace;font-size:12px;text-align:right;white-space:pre;overflow:hidden;background:#081019;user-select:none;}
+.val-txt{flex:1;background:transparent;border:0;color:#c9f0ff;font-family:'Fira Code',monospace;font-size:12px;padding:10px;resize:vertical;min-height:220px;outline:none;line-height:1.5;white-space:pre;}
+.btn.mini{padding:6px 11px;font-size:11.5px;}
+.pdf-bx iframe{flex:1;border:0;width:100%;background:#fff;}
 </style>
 </head>
 <body>
@@ -171,6 +215,43 @@ tr:hover td{background:var(--panel2);}
     <div class="login-link" id="lnkCambiarPass">🔑 ¿Cambiar contraseña?</div>
     <div class="login-err" id="loginErr"></div>
     <div class="login-foot">plataforma que conecta todo</div>
+  </div>
+</div>
+
+<!-- ===== VALIDADOR DE SOPORTES JSON / XML ===== -->
+<div id="valOv" class="val-ov">
+  <div class="val-box">
+    <div class="val-head">
+      <div>
+        <h3><i class="fas fa-shield-halved" style="color:#48d597"></i> Validar y empaquetar soportes</h3>
+        <div class="val-sub" id="valSub">Cuenta de cobro</div>
+      </div>
+      <button class="val-close" id="valClose" type="button" title="Cerrar">&times;</button>
+    </div>
+    <div class="val-body">
+      <div class="val-drop" id="valDrop">
+        <i class="fas fa-cloud-arrow-up"></i>
+        <b>Adjuntar JSON y XML</b>
+        <small>Arrastra aquí los archivos o haz clic para seleccionarlos. Puedes subir muchos a la vez (.json y .xml). El sistema los agrupa por número de factura.</small>
+        <input type="file" id="valInput" accept=".json,.xml,application/json,text/xml,application/xml" multiple hidden>
+      </div>
+      <div class="val-files" id="valFiles"></div>
+
+      <div class="val-sec" id="valSec1" style="display:none">
+        <h4><i class="fas fa-list-check"></i> Fase 1 · Cruce con la cuenta de cobro</h4>
+        <div id="valF1"></div>
+      </div>
+
+      <div class="val-sec" id="valSec2" style="display:none">
+        <h4><i class="fas fa-scale-balanced"></i> Fase 2 · Validación cruzada JSON ↔ XML</h4>
+        <div id="valF2"></div>
+      </div>
+
+      <div class="val-foot">
+        <button class="btn btn-save" id="valBtnZip" type="button" disabled><i class="fas fa-file-archive"></i> Descargar ZIP (2 carpetas: XML y SOPORTES)</button>
+        <span class="state" id="valEstado" style="color:var(--muted);font-size:12.5px">Esperando archivos…</span>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -267,17 +348,15 @@ tr:hover td{background:var(--panel2);}
         <div class="sec-title">CUENTAS DE COBRO GUARDADAS</div>
         <div class="hint" style="margin:2px 0 10px">Aquí quedan guardadas las cuentas que creas en la pestaña <b>Búsqueda</b> (marcas las carpetas y pulsas “Crear cuenta de cobro”). Desde aquí puedes volver a <b>descargar su ZIP</b>, <b>editar las facturas</b> o <b>validar los soportes</b> cuando quieras.</div>
         <div class="searchwrap" style="align-items:center;gap:10px;flex-wrap:wrap">
-          <div class="field" style="max-width:340px;flex:1"><input id="ccBuscar" placeholder="Buscar cuenta por N°, EPS, factura o lote..."></div>
-          <select id="ccFiltroEps" class="btn btn-ghost" style="cursor:pointer"><option value="">Todas las EPS</option><option>FIDUPREVISORA S.A</option><option>COOSALUD EPS SUBSIDIADO</option></select>
+          <div class="field" style="max-width:340px;flex:1"><input id="ccBuscar" placeholder="Buscar cuenta por N°, factura o lote..."></div>
           <button class="btn btn-cyan" id="btnCCActualizar">🔄 Actualizar</button>
           <span class="badge" id="ccCount">0 cuentas</span>
         </div>
         <div id="tablaCuentas"></div>
         <details style="margin-top:14px">
           <summary style="cursor:pointer;font-weight:600;color:var(--cyan)">➕ Agregar una cuenta manual (opcional)</summary>
-          <div class="grid-cfg" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-top:10px">
+          <div class="grid-cfg" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px">
             <div class="field"><label>N° cuenta de cobro</label><input id="ccNum" placeholder="N° consecutivo (automático)"></div>
-            <div class="field"><label>EPS</label><input id="ccEps" placeholder="FIDUPREVISORA S.A" value="FIDUPREVISORA S.A"></div>
             <div class="field"><label>Lote(s) / facturas</label><input id="ccLote" placeholder="Ej: 426899, 427141"></div>
             <div class="field"><label>Valor</label><input id="ccValor" placeholder="$"></div>
           </div>
@@ -959,9 +1038,9 @@ function renderCuentas(){
       +`<button class="btn btn-cyan" style="padding:5px 10px;margin:2px" onclick="ccEditarFacturas('${id}')">✏️ Editar facturas</button>`
       +`<button class="btn btn-ghost" style="padding:5px 10px;margin:2px" onclick="ccValidarSoportes('${id}')">🔎 Validar soportes</button>`
       +`<button class="btn btn-ghost" style="padding:5px 10px;margin:2px" onclick="delCC('${id}')">🗑️</button>`;
-    return `<tr><td><b>${c.num}</b></td><td>${ccEpsDe(c)}</td><td>${c.fecha||'-'}</td><td style="text-align:center">${nf}</td><td>${c.valor||'-'}</td><td style="white-space:nowrap">${acc}</td></tr>`;
+    return `<tr><td><b>${c.num}</b></td><td>${c.fecha||'-'}</td><td style="text-align:center">${nf}</td><td>${c.valor||'-'}</td><td style="white-space:nowrap">${acc}</td></tr>`;
   }).join('');
-  cont.innerHTML=`<table><thead><tr><th>N° de cuenta</th><th>EPS</th><th>Fecha</th><th style="text-align:center">Facturas</th><th>Valor</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table>`;
+  cont.innerHTML=`<table><thead><tr><th>N° de cuenta</th><th>Fecha</th><th style="text-align:center">Facturas</th><th>Valor</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 if($('#ccBuscar')) $('#ccBuscar').addEventListener('input',renderCuentas);
 if($('#ccFiltroEps')) $('#ccFiltroEps').addEventListener('change',renderCuentas);
@@ -984,27 +1063,9 @@ window.ccEditarFacturas=async function(id){
   localStorage.setItem(LS_CC,JSON.stringify(data)); renderCuentas();
   toast('✅ Cuenta '+c.num+' actualizada ('+lotes.length+' factura(s)).');
 };
-window.ccValidarSoportes=async function(id){
+window.ccValidarSoportes=function(id){
   const c=ccPorId(id); if(!c)return;
-  if(!driveOn){toast('⚠️ Conéctate a Google Drive para validar los soportes.');return;}
-  const lotes=ccLotesDe(c); if(!lotes.length){toast('⚠️ La cuenta no tiene lotes/facturas.');return;}
-  toast('🔎 Validando soportes en Drive...');
-  const ORDEN=['CRC','PDE','HEV','RED','OPF','FEV']; const SEP=String(sep()||'_');
-  let root; try{root=await ensureFevRoot();}catch(e){toast('❌ No se pudo abrir Drive.');return;}
-  const lineas=[]; let completos=0;
-  for(const lote of lotes){
-    try{
-      const folderId=await findFolder(String(lote),root);
-      if(!folderId){lineas.push('📁 '+lote+': ❌ carpeta no encontrada en Drive');continue;}
-      const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(name)&spaces=drive');
-      const j=await r.json(); const enDrive=(j.files||[]).map(f=>String(f.name).toUpperCase());
-      const tiene=ORDEN.filter(t=>enDrive.some(n=>n.startsWith((t+SEP).toUpperCase())));
-      const faltan=ORDEN.filter(t=>tiene.indexOf(t)<0);
-      if(!faltan.length){completos++;lineas.push('📁 '+lote+': ✅ 6/6 completos');}
-      else lineas.push('📁 '+lote+': ⚠️ '+tiene.length+'/6 — faltan: '+faltan.join(', '));
-    }catch(e){lineas.push('📁 '+lote+': ❌ '+e.message);}
-  }
-  uiAlert('🔎 Validación de soportes · cuenta '+c.num,'<div style="text-align:left;max-height:50vh;overflow:auto">'+lineas.join('<br>')+'<br><br><b>'+completos+' de '+lotes.length+' lote(s) completos.</b></div>');
+  valAbrir(c);
 };
 window.ccDescargarZip=async function(id){
   const c=ccPorId(id); if(!c)return;
@@ -1033,6 +1094,201 @@ window.ccDescargarZip=async function(id){
     toast('✅ ZIP de la cuenta '+c.num+' descargado ('+total+' PDF).');
   }catch(e){toast('❌ No se pudo armar el ZIP: '+e.message);}
 };
+
+/* ================= VALIDADOR DE SOPORTES JSON/XML (gestor general) ================= */
+let VAL=null;
+function valEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function valNormNum(v){ if(v==null)return ''; return String(v).trim().replace(/\s+/g,''); }
+function valNum2(n){ const x=Number(n); return isFinite(x)?Math.round(x*100)/100:null; }
+function valPesos(v){ const x=Number(v); if(!isFinite(x))return String(v); return '$'+x.toLocaleString('es-CO'); }
+function valBuscarClave(obj,nombres){
+  const low=nombres.map(n=>n.toLowerCase()); let found=null;
+  (function rec(o){
+    if(found!=null||o==null||typeof o!=='object')return;
+    for(const k in o){ if(!Object.prototype.hasOwnProperty.call(o,k))continue; if(low.indexOf(String(k).toLowerCase())>=0 && typeof o[k]!=='object'){found=o[k];return;} }
+    for(const k2 in o){ if(found!=null)return; if(o[k2]&&typeof o[k2]==='object')rec(o[k2]); }
+  })(obj);
+  return found;
+}
+function valExtraerJSON(a){
+  const r={num:'',cufe:'',total:null,subtotal:null,iva:null,ica:null,obj:null,texto:a.texto,error:null};
+  let o; try{o=JSON.parse(a.texto);}catch(e){r.error='JSON ilegible: '+(e.message||e);return r;}
+  r.obj=o;
+  r.num=valNormNum(valBuscarClave(o,['numFactura','numeroFactura','numero_factura','invoiceNumber','numDocumento','numero','factura']));
+  r.cufe=valNormNum(valBuscarClave(o,['cufe','CUFE','uuid','UUID','cune']));
+  const tot=valBuscarClave(o,['total','valorTotal','vrTotal','totalFactura','payableAmount','valorAPagar','granTotal']); r.total=tot!=null?valNum2(tot):null;
+  const sub=valBuscarClave(o,['subtotal','valorBruto','lineExtensionAmount','valorNeto','totalBruto']); r.subtotal=sub!=null?valNum2(sub):null;
+  const iva=valBuscarClave(o,['iva','IVA','valorIva','totalIva']); r.iva=iva!=null?valNum2(iva):null;
+  const ica=valBuscarClave(o,['ica','ICA','valorIca','totalIca','reteica']); r.ica=ica!=null?valNum2(ica):null;
+  if(r.total==null && o && Array.isArray(o.usuarios)){
+    let s=0,hay=false;
+    o.usuarios.forEach(u=>{ const sv=u&&u.servicios?u.servicios:{};
+      ['consultas','procedimientos','otrosServicios','urgencias','hospitalizacion','recienNacidos','medicamentos'].forEach(k=>{
+        if(Array.isArray(sv[k]))sv[k].forEach(b=>{const v=Number(b&&b.vrServicio);if(isFinite(v)){s+=v;hay=true;}});
+      });
+    });
+    if(hay)r.total=valNum2(s);
+  }
+  return r;
+}
+function valXLocal(root,name){ const all=root.getElementsByTagName('*'); for(let i=0;i<all.length;i++){if((all[i].localName||all[i].nodeName).toLowerCase()===name.toLowerCase())return all[i];} return null; }
+function valXLocalAll(root,name){ const res=[],all=root.getElementsByTagName('*'); for(let i=0;i<all.length;i++){if((all[i].localName||all[i].nodeName).toLowerCase()===name.toLowerCase())res.push(all[i]);} return res; }
+function valXText(el){return el?String(el.textContent||'').trim():'';}
+function valExtraerXML(a){
+  const r={num:'',cufe:'',total:null,subtotal:null,iva:null,ica:null,error:null};
+  let doc; try{doc=new DOMParser().parseFromString(a.texto,'text/xml');}catch(e){r.error='XML ilegible';return r;}
+  if(doc.getElementsByTagName('parsererror').length){r.error='XML con errores de formato';return r;}
+  let root=doc.documentElement;
+  if((root.localName||root.nodeName).toLowerCase().indexOf('attacheddocument')>=0){
+    const desc=valXLocal(root,'Description'); const inner=valXText(desc);
+    if(inner&&inner.indexOf('<')>=0){ try{const d2=new DOMParser().parseFromString(inner,'text/xml'); if(d2.documentElement&&!d2.getElementsByTagName('parsererror').length){doc=d2;root=d2.documentElement;}}catch(e){} }
+  }
+  const ids=valXLocalAll(root,'ID');
+  for(let i=0;i<ids.length;i++){if(ids[i].parentNode===root){r.num=valNormNum(valXText(ids[i]));break;}}
+  if(!r.num&&ids.length)r.num=valNormNum(valXText(ids[0]));
+  const uuid=valXLocal(root,'UUID'); if(uuid)r.cufe=valNormNum(valXText(uuid));
+  const lmt=valXLocal(root,'LegalMonetaryTotal')||root;
+  const pay=valXLocal(lmt,'PayableAmount')||valXLocal(root,'PayableAmount'); if(pay)r.total=valNum2(valXText(pay));
+  const lea=valXLocal(lmt,'LineExtensionAmount')||valXLocal(root,'LineExtensionAmount'); if(lea)r.subtotal=valNum2(valXText(lea));
+  valXLocalAll(root,'TaxTotal').forEach(tt=>{ let code=''; valXLocalAll(tt,'ID').forEach(s=>{const t=valXText(s);if(t==='01'||t==='03'||t==='04')code=t;}); const amt=valXLocal(tt,'TaxAmount'); const v=amt?valNum2(valXText(amt)):null; if(code==='01'&&r.iva==null)r.iva=v; else if((code==='03'||code==='04')&&r.ica==null)r.ica=v; else if(!code&&r.iva==null)r.iva=v; });
+  return r;
+}
+/* VAL_ANCHOR */
+function valAbrir(cuenta){
+  VAL={cuenta:cuenta,archivos:[],porFactura:{},fase1ok:false,fase2ok:false};
+  const lotes=ccLotesDe(cuenta); const nf=lotes.length;
+  const sub=$('#valSub'); if(sub) sub.innerHTML='Cuenta <b>'+valEsc(cuenta.num)+'</b> · '+nf+' factura'+(nf!==1?'s':'')+' ('+valEsc(lotes.join(', '))+'). Adjunta un .json y un .xml por cada factura.';
+  $('#valFiles').innerHTML=''; $('#valF1').innerHTML=''; $('#valF2').innerHTML='';
+  $('#valSec1').style.display='none'; $('#valSec2').style.display='none';
+  $('#valBtnZip').disabled=true; $('#valEstado').textContent='Esperando archivos…';
+  $('#valOv').classList.add('show');
+}
+function valCerrar(){ const ov=$('#valOv'); if(ov)ov.classList.remove('show'); VAL=null; }
+function valLeerArchivos(fileList){
+  const files=Array.prototype.slice.call(fileList||[]); if(!files.length||!VAL)return;
+  let pend=files.length;
+  files.forEach(f=>{ const ext=(f.name.split('.').pop()||'').toLowerCase();
+    if(ext!=='json'&&ext!=='xml'){pend--;if(pend<=0){valPintarArchivos();valValidar();}return;}
+    const rd=new FileReader();
+    rd.onload=()=>{ VAL.archivos.push({name:f.name,ext:ext,texto:String(rd.result||'')}); if(--pend<=0){valPintarArchivos();valValidar();} };
+    rd.onerror=()=>{ if(--pend<=0){valPintarArchivos();valValidar();} };
+    rd.readAsText(f);
+  });
+}
+function valPintarArchivos(){
+  const cont=$('#valFiles'); if(!cont)return; cont.innerHTML='';
+  VAL.archivos.forEach((a,i)=>{ const chip=document.createElement('span'); chip.className='val-chip';
+    chip.innerHTML='<i class="fas fa-file-code '+(a.ext==='json'?'j':'x')+'"></i> '+valEsc(a.name)+' <i class="fas fa-times rm" title="Quitar"></i>';
+    chip.querySelector('.rm').onclick=()=>{VAL.archivos.splice(i,1);valPintarArchivos();valValidar();};
+    cont.appendChild(chip);
+  });
+}
+function valValidar(){
+  const cuenta=VAL&&VAL.cuenta; if(!cuenta)return;
+  const porFactura={}; const sinNumero=[];
+  VAL.archivos.forEach(a=>{ const d=(a.ext==='json')?valExtraerJSON(a):valExtraerXML(a); a.datos=d;
+    const num=d.num; if(!num){sinNumero.push(a);return;}
+    if(!porFactura[num])porFactura[num]={num:num,json:null,xml:null}; porFactura[num][a.ext]=a; });
+  VAL.porFactura=porFactura;
+  if(!VAL.archivos.length){ $('#valSec1').style.display='none'; $('#valSec2').style.display='none'; $('#valBtnZip').disabled=true; $('#valEstado').textContent='Esperando archivos…'; return; }
+  const f1=valFase1(cuenta,porFactura,sinNumero);
+  const f2=valFase2(porFactura);
+  VAL.fase1ok=f1; VAL.fase2ok=f2;
+  const ok=f1&&f2; $('#valBtnZip').disabled=!ok;
+  $('#valEstado').innerHTML=ok?'<span style="color:#7ee2a8">✔ Todo validado. Ya puedes descargar el ZIP.</span>':'<span style="color:#ffb4b4">Corrige los puntos marcados en rojo para habilitar la descarga.</span>';
+}
+function valFase1(cuenta,porFactura,sinNumero){
+  const sec=$('#valSec1'); sec.style.display=''; const cont=$('#valF1'); cont.innerHTML='';
+  const esperadas=ccLotesDe(cuenta).map(valNormNum).filter(Boolean);
+  const setEsp={}; esperadas.forEach(n=>setEsp[n]=1);
+  const cargadas=Object.keys(porFactura); let okTotal=true;
+  function row(cls,ico,html){ const d=document.createElement('div'); d.className='val-row '+cls; d.innerHTML='<span class="ico"><i class="fas '+ico+'"></i></span><span>'+html+'</span>'; cont.appendChild(d); }
+  esperadas.forEach(n=>{ const g=porFactura[n];
+    if(!g){row('err','fa-circle-xmark','Falta soporte de la factura <b>'+valEsc(n)+'</b> (no se cargaron ni JSON ni XML).');okTotal=false;return;}
+    const falta=[]; if(!g.json)falta.push('JSON'); if(!g.xml)falta.push('XML');
+    if(falta.length){row('err','fa-circle-xmark','Factura <b>'+valEsc(n)+'</b>: falta el '+falta.join(' y el ')+'.');okTotal=false;}
+    else{row('ok','fa-circle-check','Factura <b>'+valEsc(n)+'</b>: JSON y XML presentes.');}
+  });
+  cargadas.forEach(n=>{ if(!setEsp[n]){row('err','fa-triangle-exclamation','La factura <b>'+valEsc(n)+'</b> de los archivos cargados NO pertenece a esta cuenta de cobro.');okTotal=false;} });
+  (sinNumero||[]).forEach(a=>{row('warn','fa-circle-question','No se pudo leer el n° de factura en <b>'+valEsc(a.name)+'</b>'+(a.datos&&a.datos.error?' ('+valEsc(a.datos.error)+')':'')+'.');okTotal=false;});
+  if(!esperadas.length){row('warn','fa-circle-question','Esta cuenta no tiene facturas/lotes registrados. Usa “Editar facturas” para agregarlos.');okTotal=false;}
+  else if(okTotal)row('ok','fa-circle-check','<b>Fase 1 superada:</b> todos los soportes coinciden con la cuenta ('+esperadas.length+' factura'+(esperadas.length!==1?'s':'')+').');
+  return okTotal;
+}
+/* VAL_ANCHOR2 */
+function valFase2(porFactura){
+  const sec=$('#valSec2'); const cont=$('#valF2'); cont.innerHTML='';
+  const nums=Object.keys(porFactura);
+  const pares=nums.filter(n=>porFactura[n].json&&porFactura[n].xml);
+  if(!pares.length){sec.style.display='none';return false;}
+  sec.style.display=''; let okTotal=true;
+  pares.forEach(n=>{ const g=porFactura[n]; const J=g.json.datos,X=g.xml.datos;
+    const card=document.createElement('div'); card.className='val-fcard';
+    const errores=[]; const filas=[];
+    function cmp(label,vj,vx,tipo){
+      const tj=(vj!=null&&vj!==''),tx=(vx!=null&&vx!=='');
+      let estado,clase;
+      if(!tj&&!tx){estado='sin dato';clase='';}
+      else if(tj&&tx){ let igual=(tipo==='num')?(valNum2(vj)===valNum2(vx)):(valNormNum(vj)===valNormNum(vx)); igual=igual||(tipo==='num'&&Math.abs((valNum2(vj)||0)-(valNum2(vx)||0))<0.5); estado=igual?'coincide':'DIFIERE';clase=igual?'good':'bad'; if(!igual)errores.push(label); }
+      else{estado='solo en '+(tj?'JSON':'XML');clase='';}
+      const fj=(tipo==='num'&&tj)?valPesos(vj):(tj?valEsc(vj):'—');
+      const fx=(tipo==='num'&&tx)?valPesos(vx):(tx?valEsc(vx):'—');
+      filas.push('<tr><td>'+label+'</td><td class="mono">'+fj+'</td><td class="mono">'+fx+'</td><td class="'+clase+'">'+estado+'</td></tr>');
+    }
+    if(J.error)errores.push('JSON'); if(X.error)errores.push('XML');
+    cmp('N° de factura',J.num,X.num,'txt'); cmp('CUFE / CUDE',J.cufe,X.cufe,'txt'); cmp('Total',J.total,X.total,'num'); cmp('Subtotal',J.subtotal,X.subtotal,'num'); cmp('IVA',J.iva,X.iva,'num'); cmp('ICA',J.ica,X.ica,'num');
+    const hayError=errores.length>0; if(hayError)okTotal=false;
+    card.innerHTML='<div class="ftit"><b><i class="fas fa-file-invoice-dollar" style="margin-right:6px;color:#48a0d5"></i>Factura '+valEsc(n)+'</b><span class="val-row '+(hayError?'err':'ok')+'" style="margin:0;padding:3px 10px">'+(hayError?'<i class="fas fa-circle-xmark"></i> '+errores.length+' discrepancia(s)':'<i class="fas fa-circle-check"></i> Sin discrepancias')+'</span></div>'+(J.error?'<div class="val-row err"><span class="ico"><i class="fas fa-bug"></i></span><span>'+valEsc(J.error)+'</span></div>':'')+(X.error?'<div class="val-row err"><span class="ico"><i class="fas fa-bug"></i></span><span>'+valEsc(X.error)+'</span></div>':'')+'<table class="val-cmp"><thead><tr><th>Campo</th><th>JSON</th><th>XML</th><th>Resultado</th></tr></thead><tbody>'+filas.join('')+'</tbody></table>';
+    cont.appendChild(card);
+  });
+  return okTotal;
+}
+async function valDescargarZip(){
+  if(!VAL||!VAL.fase1ok||!VAL.fase2ok){toast('⚠️ Aún hay validaciones pendientes.');return;}
+  if(typeof JSZip==='undefined'){toast('❌ El compresor aún carga, intenta en 5 segundos.');return;}
+  const cuenta=VAL.cuenta; const nit=($('#cfgNit').value||'').trim()||'NIT';
+  const esperadas=ccLotesDe(cuenta).map(valNormNum).filter(Boolean);
+  const bz=$('#valBtnZip'); const est=$('#valEstado'); const t0=bz.innerHTML;
+  bz.disabled=true; bz.innerHTML='<i class="fas fa-spinner fa-spin"></i> Preparando…';
+  const zip=new JSZip(); const fXML=zip.folder('XML'); const fSOP=zip.folder('SOPORTES');
+  let nXml=0,nPdf=0,fallos=0; let root=null;
+  if(driveOn){ try{root=await ensureFevRoot();}catch(e){root=null;} }
+  try{
+    for(let i=0;i<esperadas.length;i++){
+      const n=esperadas[i];
+      est.innerHTML='<span style="color:#9fd3f0">Preparando factura '+(i+1)+' de '+esperadas.length+' ('+valEsc(n)+')…</span>';
+      await new Promise(r=>setTimeout(r,0));
+      const g=VAL.porFactura[n];
+      if(g&&g.json&&g.xml){ const base='FEV_'+nit+'_'+n; const sx=fXML.folder(n); sx.file(base+'.json',g.json.texto); sx.file(base+'.xml',g.xml.texto); nXml++; }
+      const ss=fSOP.folder(n);
+      if(root){ try{ const folderId=await findFolder(String(n),root);
+        if(folderId){ const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name,mimeType)&spaces=drive'); const j=await r.json();
+          for(const f of (j.files||[])){ if(f.mimeType&&f.mimeType.indexOf('folder')>=0)continue; try{const bytes=await descargarPdf(f.id); ss.file(f.name,bytes); nPdf++;}catch(e){fallos++;} }
+        } else { ss.file('_SIN_CARPETA_EN_DRIVE.txt','No se encontró la carpeta "'+n+'" en Google Drive.'); }
+      }catch(e){fallos++;} }
+      else { ss.file('_SIN_DRIVE.txt','Conéctate a Google Drive para incluir los PDF de soporte de esta factura.'); }
+    }
+    est.innerHTML='<span style="color:#9fd3f0">Generando ZIP… unos segundos.</span>';
+    const blob=await zip.generateAsync({type:'blob'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='CuentaCobro_'+String(cuenta.num).replace(/[^\w.-]/g,'_')+'_soportes.zip'; a.click();
+    toast('✅ ZIP listo: '+nXml+' factura(s) en XML, '+nPdf+' PDF en SOPORTES'+(fallos?(' · ⚠ '+fallos+' no bajaron de Drive'):'')+'.');
+    est.innerHTML='<span style="color:#7ee2a8">✔ Listo. Revisa tu carpeta de Descargas.</span>';
+  }catch(err){ toast('❌ No se pudo generar el ZIP: '+(err.message||err)); est.innerHTML='<span style="color:#ffb4b4">Error al generar el ZIP.</span>'; }
+  finally{ bz.disabled=false; bz.innerHTML=t0; }
+}
+(function(){
+  const drop=$('#valDrop'), input=$('#valInput');
+  if(drop&&input){
+    drop.addEventListener('click',()=>input.click());
+    input.addEventListener('change',()=>{ valLeerArchivos(input.files); input.value=''; });
+    ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+    ['dragleave'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+    drop.addEventListener('drop',e=>{ e.preventDefault(); drop.classList.remove('over'); if(e.dataTransfer&&e.dataTransfer.files)valLeerArchivos(e.dataTransfer.files); });
+  }
+  const bz=$('#valBtnZip'); if(bz)bz.addEventListener('click',valDescargarZip);
+  const cl=$('#valClose'); if(cl)cl.addEventListener('click',valCerrar);
+  const ov=$('#valOv'); if(ov)ov.addEventListener('click',e=>{ if(e.target===ov)valCerrar(); });
+})();
 
 /* ================= SEGURIDAD / USUARIOS ================= */
 const LS_USERS='archivo_digital_usuarios';
