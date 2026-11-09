@@ -356,8 +356,11 @@ tr:hover td{background:var(--panel2);}
           <label class="btn btn-ghost" style="cursor:pointer;margin:0">📄 Cambio masivo (Excel)<input type="file" id="renombreExcel" accept=".xlsx,.xls" style="display:none"></label>
           <button class="btn btn-ghost" id="btnPlantillaExcel">⬇️ Plantilla</button>
           <button class="btn btn-cyan" id="btnSincroDrive">🔄 Actualizar con Drive</button>
+          <button class="btn btn-cyan" id="btnAdjuntarFEV" title="Adjunta y guarda el PDF de la factura (FEV) para TODAS las facturas que aún no lo tienen">⚡ Adjuntar facturas en lote</button>
+          <button class="btn btn-ghost" id="btnElegirCarpetaFEV" title="Elegir o cambiar la carpeta del computador donde están los PDF de las facturas">📁 Carpeta</button>
         </div>
         <div class="hint" style="margin:8px 0 2px"><b>Enter</b> = trae justo esa carpeta. <b>✏️ Renombrar</b> cambia el nombre en la app y en Google Drive. <b>Cambio masivo (Excel)</b>: columna A = nombre ACTUAL, columna B = nombre NUEVO.</div>
+        <div class="hint" style="margin:2px 0 2px"><b>⚡ Adjuntar facturas en lote</b>: la 1ª vez te pide elegir la carpeta del computador con los PDF de las facturas. Luego, con solo pulsar el ⚡, busca el PDF de cada factura que aún no tiene su <b>FEV</b>, lo sube a Drive y lo marca; las que no encuentra las deja en blanco. <b>📁 Carpeta</b> = cambiar de carpeta.</div>
         <div class="btn-row" style="margin:10px 0 2px">
           <button class="btn btn-green" id="btnCCDesdeSel">🧾 Crear cuenta de cobro (seleccionados)</button>
           <button class="btn btn-ghost" id="btnPlantillaCC">⬇️ Plantilla cuenta de cobro (1 columna)</button>
@@ -459,7 +462,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v2.6 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v2.7 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -1066,6 +1069,93 @@ function wireRenombreMasivo(){
   });
 }
 wireRenombreMasivo();
+
+/* ===== ⚡ ADJUNTAR FACTURAS EN LOTE (igual que el sistema general) =====
+   1ª vez: pide elegir la carpeta del computador donde están los PDF de las
+   facturas. Luego, con solo pulsar ⚡, busca el PDF de cada factura/lote que
+   AÚN NO tiene su FEV, lo sube a Drive y lo marca; las que no encuentra las
+   deja en blanco. La carpeta queda recordada (IndexedDB) para la próxima vez.
+   NO borra ni toca nada de lo ya guardado: solo AGREGA el FEV que falta. */
+const IDB_NAME='archivo_digital_idb', IDB_STORE='handles';
+function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open(IDB_NAME,1);r.onupgradeneeded=()=>{try{r.result.createObjectStore(IDB_STORE);}catch(e){}};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function idbSet(k,v){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).put(v,k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
+async function idbGet(k){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(IDB_STORE,'readonly');const rq=tx.objectStore(IDB_STORE).get(k);rq.onsuccess=()=>res(rq.result||null);rq.onerror=()=>rej(rq.error);});}
+let _facturasDir=null;
+async function verifPerm(h){
+  try{
+    const o={mode:'read'};
+    if((await h.queryPermission(o))==='granted') return true;
+    if((await h.requestPermission(o))==='granted') return true;
+  }catch(e){}
+  return false;
+}
+async function getFacturasDir(forzarElegir){
+  if(!forzarElegir){
+    if(_facturasDir){ if(await verifPerm(_facturasDir)) return _facturasDir; }
+    try{ const h=await idbGet('facturasDir'); if(h){ _facturasDir=h; if(await verifPerm(h)) return h; } }catch(e){}
+  }
+  if(!window.showDirectoryPicker){ throw new Error('Tu navegador no permite elegir carpeta. Usa Chrome o Edge en el computador (no en el teléfono).'); }
+  const h=await window.showDirectoryPicker({mode:'read'});
+  _facturasDir=h; try{ await idbSet('facturasDir',h); }catch(e){}
+  return h;
+}
+async function listarPdfsCarpeta(dir,acc,prof){
+  acc=acc||[]; prof=prof||0;
+  for await (const ent of dir.values()){
+    if(ent.kind==='file' && /\.pdf$/i.test(ent.name)) acc.push(ent);
+    else if(ent.kind==='directory' && prof<3){ try{ await listarPdfsCarpeta(ent,acc,prof+1); }catch(e){} }
+  }
+  return acc;
+}
+function matchLote(fileName,lote){
+  const fn=String(fileName).toUpperCase();
+  const L=String(lote).toUpperCase().replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  if(!L) return false;
+  try{ return new RegExp('(^|[^A-Z0-9])'+L+'([^A-Z0-9]|$)').test(fn); }catch(e){ return fn.indexOf(String(lote).toUpperCase())>=0; }
+}
+let _adjEnCurso=false;
+async function adjuntarFacturasEnLote(elegirCarpeta){
+  if(_adjEnCurso){ toast('⏳ Espera, aún estoy adjuntando...'); return; }
+  if(!driveOn){ toast('⚠️ Conéctate a Google Drive primero: el ⚡ guarda las facturas en Drive.'); return; }
+  let dir;
+  try{ dir=await getFacturasDir(!!elegirCarpeta); }
+  catch(e){ if(e && e.name==='AbortError') return; toast('❌ '+(e.message||e)); return; }
+  if(!dir) return;
+  _adjEnCurso=true;
+  try{
+    toast('⚡ Leyendo la carpeta “'+dir.name+'”...');
+    let pdfs=[];
+    try{ pdfs=await listarPdfsCarpeta(dir); }catch(e){ toast('❌ No se pudo leer la carpeta: '+e.message); return; }
+    if(!pdfs.length){ toast('⚠️ La carpeta “'+dir.name+'” no tiene PDF.'); return; }
+    let data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
+    const pendientes=data.filter(l=>!((l.docs||[]).some(d=>d.tipo==='FEV')));
+    if(!pendientes.length){ toast('✅ Todas las facturas ya tienen su FEV. Nada que adjuntar.'); return; }
+    const SEP=String(sep()||'_');
+    let ok=0, sinPdf=0, err=0, i=0;
+    for(const l of pendientes){
+      i++;
+      toast('⚡ Procesando '+i+' de '+pendientes.length+'...');
+      const ent=pdfs.find(p=>matchLote(p.name,l.lote));
+      if(!ent){ sinPdf++; continue; }   /* no se encontró su PDF: se deja en blanco */
+      try{
+        const file=await ent.getFile();
+        const bytes=new Uint8Array(await file.arrayBuffer());
+        const nit=(l.nit||$('#cfgNit').value.trim()||'');
+        const nombre='FEV'+SEP+nit+SEP+String(l.lote)+'.pdf';
+        const lf=await ensureLoteFolder(String(l.lote));
+        await uploadPdfCached(String(l.lote),nombre,bytes,lf,'crear');
+        registrarLote(nit,String(l.lote),[{tipo:'FEV',nombre:nombre}]);
+        ok++;
+      }catch(e){ err++; }
+    }
+    renderBusqueda(); actualizarTotal();
+    toast('⚡ Listo: '+ok+' factura(s) adjuntada(s)'+(sinPdf?(' · '+sinPdf+' sin PDF (en blanco)'):'')+(err?(' · '+err+' con error'):'')+'.');
+  }finally{ _adjEnCurso=false; }
+}
+(function(){
+  const b=$('#btnAdjuntarFEV'); if(b) b.addEventListener('click',()=>adjuntarFacturasEnLote(false));
+  const bc=$('#btnElegirCarpetaFEV'); if(bc) bc.addEventListener('click',()=>adjuntarFacturasEnLote(true));
+})();
 
 /* ---------- CUENTAS DE COBRO ---------- */
 /* Número consecutivo simple (como en el sistema general: 9,10,11...18,19...) */
