@@ -66,6 +66,8 @@ body{background:var(--bg);color:var(--txt);font-size:14px;}
 .btn-green:hover{filter:brightness(1.1);}
 .statusbar{background:rgba(40,167,69,.15);border:1px solid var(--green);color:#7fe39a;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:12px;font-weight:600;}
 .searchwrap{display:flex;gap:10px;align-items:center;}
+.busq-sticky{position:-webkit-sticky;position:sticky;top:0;z-index:40;background:var(--panel);padding:18px 0 10px;margin:-18px 0 10px;border-bottom:1px solid var(--line);}
+@media(max-width:820px){.busq-sticky{position:-webkit-sticky;position:sticky;top:0;}}
 .searchwrap input{flex:1;}
 .hint{color:var(--muted);font-size:11px;margin-top:8px;}
 /* CARDS 6 DOCS */
@@ -350,6 +352,7 @@ tr:hover td{background:var(--panel2);}
     <!-- ================= BUSQUEDA ================= -->
     <section class="view" id="view-busqueda">
       <div class="card-box">
+        <div class="busq-sticky">
         <div class="sec-title">Búsqueda de documentos guardados</div>
         <div class="searchwrap" style="align-items:center;gap:10px;flex-wrap:wrap">
           <div class="field" style="max-width:260px"><input id="buscaGlobal" placeholder="Escribe el lote y pulsa Enter..."></div>
@@ -368,6 +371,7 @@ tr:hover td{background:var(--panel2);}
           <span class="badge" id="selCount">0 seleccionados</span>
         </div>
         <div class="hint" style="margin:2px 0 2px">Marca las casillas de la columna ☑️ para elegir varias carpetas y crear <b>una</b> cuenta de cobro con todas. La plantilla es una sola columna llamada <b>LOTE</b>.</div>
+        </div>
         <div id="tablaBusqueda"></div>
       </div>
     </section>
@@ -462,7 +466,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v2.7 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v2.8 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -866,12 +870,19 @@ $('#buscaGlobal').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDe
 function renderBusqueda(){
   const q=($('#buscaGlobal')?.value||'').trim().toLowerCase();
   let data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
+  /* Ocultar (NO borrar) las carpetas/lotes que YA están en una cuenta de cobro */
+  const enCuenta=new Set();
+  try{(JSON.parse(localStorage.getItem(LS_CC)||'[]')).forEach(c=>ccLotesDe(c).forEach(x=>enCuenta.add(String(x).trim().toUpperCase())));}catch(e){}
+  const totalAntes=data.length;
+  data=data.filter(l=>!enCuenta.has(String(l.lote).trim().toUpperCase()));
+  const ocultos=totalAntes-data.length;
   if(q){
     if(busqExacta) data=data.filter(l=>String(l.lote).toLowerCase()===q);
     else data=data.filter(l=>(l.lote+' '+l.nit+' '+l.fecha+' '+l.docs.map(d=>d.tipo).join(' ')).toLowerCase().includes(q));
   }
   const cont=$('#tablaBusqueda');
-  if(!data.length){cont.innerHTML='<div class="empty">No hay lotes guardados todavía.</div>';return;}
+  const nota = ocultos>0 ? `<div class="hint" style="margin:0 0 8px">👁️ Se ocultaron <b>${ocultos}</b> carpeta(s) que ya están en una cuenta de cobro (no se borraron, siguen en la pestaña Cuentas de cobro).</div>` : '';
+  if(!data.length){cont.innerHTML=nota+'<div class="empty">'+(ocultos>0?'No hay carpetas por mostrar: las que tienes ya están en una cuenta de cobro.':'No hay lotes guardados todavía.')+'</div>';return;}
   let rows=data.map(l=>{
     const ORDEN=DOC_TYPES.map(d=>d.id);
     const cargados=l.docs.map(d=>d.tipo);
@@ -887,7 +898,7 @@ function renderBusqueda(){
     const btnDel=`<button class="btn btn-ghost" style="padding:6px 12px;margin-left:6px" onclick="eliminarLoteUI('${le}')">🗑️ Eliminar</button>`;
     return `<tr><td style="text-align:center"><input type="checkbox" class="chk-lote" value="${le}" style="width:16px;height:16px;accent-color:var(--cyan)"></td><td><b>${l.lote}</b></td><td>${l.nit}</td><td>${pill}</td><td>${chips}</td><td>${l.fecha}</td><td style="white-space:nowrap">${btnRen}${btn}${btnDel}</td></tr>`;
   }).join('');
-  cont.innerHTML=`<table><thead><tr><th style="text-align:center"><input type="checkbox" id="chkAll" style="width:16px;height:16px;accent-color:var(--cyan)"></th><th>Lote</th><th>NIT</th><th>Estado</th><th>Documentos (✓ cargado / ⏳ pendiente)</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>`;
+  cont.innerHTML=nota+`<table><thead><tr><th style="text-align:center"><input type="checkbox" id="chkAll" style="width:16px;height:16px;accent-color:var(--cyan)"></th><th>Lote</th><th>NIT</th><th>Estado</th><th>Documentos (✓ cargado / ⏳ pendiente)</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>`;
   const chkAll=$('#chkAll');
   if(chkAll) chkAll.addEventListener('change',()=>{document.querySelectorAll('#tablaBusqueda .chk-lote').forEach(c=>c.checked=chkAll.checked);updateSelCount();});
   document.querySelectorAll('#tablaBusqueda .chk-lote').forEach(c=>c.addEventListener('change',updateSelCount));
