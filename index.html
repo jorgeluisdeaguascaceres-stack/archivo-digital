@@ -461,12 +461,36 @@ tr:hover td{background:var(--panel2);}
   <input id="modalInput" style="display:none">
   <div class="modal-acts" id="modalActs"></div>
 </div></div>
+<div class="modal-ov" id="ccEditOv"><div class="modal-bx" style="max-width:560px">
+  <h3 id="ccEditTitle">Editar facturas</h3>
+  <p style="margin-bottom:10px">Estas son las facturas/lotes de la cuenta. Quita con la ✕ las que NO van y agrega las que falten desde la lista de abajo. Así las ves todas y no eliges la equivocada.</p>
+  <div style="font-size:12px;font-weight:700;color:var(--cyan2);margin-bottom:6px">EN ESTA CUENTA (<span id="ccEditCount">0</span>)</div>
+  <div id="ccEditSel" style="max-height:170px;overflow:auto;border:1px solid #24323f;border-radius:9px;padding:6px;background:#0b141d;margin-bottom:14px"></div>
+  <div class="field" style="margin-bottom:6px">
+    <label>Agregar una factura/lote escribiéndola:</label>
+    <div style="display:flex;gap:8px">
+      <input id="ccEditAdd" placeholder="Ej: HLNG502110" style="flex:1;margin-bottom:0">
+      <button class="btn btn-cyan" id="ccEditAddBtn" style="padding:9px 14px">➕ Agregar</button>
+    </div>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:var(--cyan2);margin:14px 0 6px">O ElÍGELAS DE TUS LOTES GUARDADOS</div>
+  <input id="ccEditFiltro" placeholder="🔎 Filtrar lotes guardados..." style="margin-bottom:8px">
+  <div id="ccEditDisp" style="max-height:190px;overflow:auto;border:1px solid #24323f;border-radius:9px;padding:6px;background:#0b141d;margin-bottom:14px"></div>
+  <div class="field" style="margin-bottom:16px">
+    <label>Valor total (opcional):</label>
+    <input id="ccEditValor" placeholder="Ej: 1.250.000" style="margin-bottom:0">
+  </div>
+  <div class="modal-acts">
+    <button class="btn btn-ghost" id="ccEditCancel">Cancelar</button>
+    <button class="btn btn-green" id="ccEditSave">💾 Guardar</button>
+  </div>
+</div></div>
 <div class="pdf-ov" id="pdfOv"><div class="pdf-bx">
   <div class="pdf-bar"><b id="pdfName">Documento</b><button class="btn btn-ghost" id="pdfClose">✕ Cerrar</button></div>
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v2.8 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v2.9 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -1228,17 +1252,55 @@ window.delCC=async function(id){
   let data=JSON.parse(localStorage.getItem(LS_CC)||'[]'); data=data.filter(x=>x.id!==id);
   localStorage.setItem(LS_CC,JSON.stringify(data)); renderCuentas(); toast('🗑️ Cuenta '+c.num+' eliminada de la lista.');
 };
-window.ccEditarFacturas=async function(id){
+let _ccEditState=null;
+function _ccEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function ccLotesGuardados(){ try{ return (JSON.parse(localStorage.getItem(LS_LOTES)||'[]')).map(l=>String(l.lote)).filter(Boolean); }catch(e){ return []; } }
+function ccRenderEditDisp(){
+  const cont=$('#ccEditDisp'); if(!cont||!_ccEditState) return;
+  const q=($('#ccEditFiltro').value||'').trim().toLowerCase();
+  const selUp=_ccEditState.sel.map(s=>s.toUpperCase());
+  let disp=ccLotesGuardados().filter(l=>!selUp.includes(l.toUpperCase()));
+  if(q) disp=disp.filter(l=>l.toLowerCase().includes(q));
+  if(!disp.length){ cont.innerHTML='<div style="color:var(--muted);font-size:12px;padding:6px">No hay más lotes guardados para agregar'+(q?' con ese filtro':'')+'.</div>'; return; }
+  cont.innerHTML=disp.map(l=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #1b2733"><span style="font-size:13px">${_ccEsc(l)}</span><button class="btn btn-cyan" style="padding:3px 11px" onclick="ccEditAgregar('${String(l).replace(/'/g,'')}')">➕</button></div>`).join('');
+}
+function ccRenderEditSel(){
+  const cont=$('#ccEditSel'); if(!cont||!_ccEditState) return;
+  const sel=_ccEditState.sel;
+  const cnt=$('#ccEditCount'); if(cnt) cnt.textContent=sel.length;
+  if(!sel.length){ cont.innerHTML='<div style="color:var(--muted);font-size:12px;padding:6px">Todavía no hay facturas en esta cuenta. Agrégalas abajo.</div>'; }
+  else cont.innerHTML=sel.map((x,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #1b2733"><span style="font-size:13px">${i+1}. <b>${_ccEsc(x)}</b></span><button class="btn btn-ghost" style="padding:3px 10px" onclick="ccEditQuitar(${i})">✕</button></div>`).join('');
+  ccRenderEditDisp();
+}
+window.ccEditQuitar=function(i){ if(!_ccEditState)return; _ccEditState.sel.splice(i,1); ccRenderEditSel(); };
+window.ccEditAgregar=function(l){ if(!_ccEditState)return; const v=String(l).trim(); if(!v)return; const up=v.toUpperCase(); if(!_ccEditState.sel.some(s=>s.toUpperCase()===up)) _ccEditState.sel.push(v); ccRenderEditSel(); };
+window.ccEditarFacturas=function(id){
   const c=ccPorId(id); if(!c)return;
-  const nuevo=await uiPrompt({title:'✏️ Editar facturas · cuenta '+c.num,msg:'Escribe los lotes/facturas separados por coma:',value:ccLotesDe(c).join(', ')});
-  if(nuevo===null) return;
-  const lotes=String(nuevo).split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
-  const val=await uiPrompt({title:'💵 Valor · cuenta '+c.num,msg:'Valor total (puedes dejarlo vacío):',value:c.valor||''});
-  let data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
-  data=data.map(x=>{ if(x.id===id){ x.lotes=lotes; if(val!==null) x.valor=String(val).trim(); } return x; });
-  localStorage.setItem(LS_CC,JSON.stringify(data)); renderCuentas();
-  toast('✅ Cuenta '+c.num+' actualizada ('+lotes.length+' factura(s)).');
+  _ccEditState={id:id, num:c.num, sel:ccLotesDe(c).slice()};
+  $('#ccEditTitle').textContent='✏️ Editar facturas · cuenta '+c.num;
+  $('#ccEditValor').value=c.valor||'';
+  $('#ccEditAdd').value=''; $('#ccEditFiltro').value='';
+  ccRenderEditSel();
+  $('#ccEditOv').classList.add('show');
 };
+(function(){
+  const addBtn=$('#ccEditAddBtn'), addInp=$('#ccEditAdd'), filtro=$('#ccEditFiltro');
+  function doAdd(){ if(!_ccEditState)return; const v=(addInp.value||'').trim(); if(!v){toast('⚠️ Escribe el nombre del lote/factura.');return;} ccEditAgregar(v); addInp.value=''; addInp.focus(); }
+  if(addBtn) addBtn.addEventListener('click',doAdd);
+  if(addInp) addInp.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();doAdd();} });
+  if(filtro) filtro.addEventListener('input',ccRenderEditDisp);
+  const cancel=$('#ccEditCancel'), save=$('#ccEditSave');
+  if(cancel) cancel.addEventListener('click',()=>{$('#ccEditOv').classList.remove('show');_ccEditState=null;});
+  if(save) save.addEventListener('click',()=>{
+    if(!_ccEditState)return;
+    const id=_ccEditState.id, num=_ccEditState.num, lotes=_ccEditState.sel.slice(), val=($('#ccEditValor').value||'').trim();
+    let data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
+    data=data.map(x=>{ if(x.id===id){ x.lotes=lotes; x.valor=val; } return x; });
+    localStorage.setItem(LS_CC,JSON.stringify(data));
+    $('#ccEditOv').classList.remove('show'); _ccEditState=null;
+    renderCuentas(); toast('✅ Cuenta '+num+' actualizada ('+lotes.length+' factura(s)).');
+  });
+})();
 window.ccValidarSoportes=function(id){
   const c=ccPorId(id); if(!c)return;
   valAbrir(c);
