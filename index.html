@@ -490,7 +490,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v2.9 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v3.0 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -1770,7 +1770,7 @@ function getToken(interactive){
     let done=false;
     _tokRes=(v)=>{if(done)return;done=true;resolve(v);};
     _tokRej=(e)=>{if(done)return;done=true;reject(e);};
-    try{ tokenClient.requestAccessToken({prompt:interactive?'consent':''}); }
+    try{ tokenClient.requestAccessToken({prompt:''}); }
     catch(e){ _tokRej(e); return; }
     setTimeout(()=>{ if(!done){done=true;reject(new Error('timeout'));} }, interactive?60000:9000);
   });
@@ -1797,7 +1797,21 @@ function updateDriveUI(){
   else{b.textContent='☁️ Conectar con Google Drive';s.textContent='No conectado';s.style.color='';s.style.borderColor='';}
 }
 async function validToken(){
-  try{return await getToken(false);}catch(e){return await getToken(true);}
+  if(gToken && Date.now()<gTokenExp) return gToken;
+  /* Token vencido/ausente: NO abrimos el popup de Google en segundo plano
+     (eso dejaba la ventanita blanca "about:blank" pegada al frente).
+     Pedimos al usuario un clic para que el popup salga de un gesto suyo
+     y Google lo cierre solo en un segundo. */
+  const ok=await uiConfirm({
+    title:'🔄 Reconectar con Google Drive',
+    msg:'Por seguridad, Google cierra la conexión cada cierto tiempo.<br><br>Haz clic en <b>Reconectar</b> y, si Google abre una ventanita, acepta con tu cuenta. Solo toma un segundo.',
+    buttons:[{text:'🔄 Reconectar',value:true,cls:'btn-green'},{text:'Cancelar',value:false,cls:'btn-ghost'}]
+  });
+  if(!ok) throw new Error('Reconexión con Google Drive cancelada.');
+  const t=await getToken(true);
+  try{ await fetchEmail(); }catch(e){}
+  driveOn=true; localStorage.setItem('archivo_digital_drive_on', gEmail||'1'); updateDriveUI();
+  return t;
 }
 async function driveFetch(url,opts){
   const t=await validToken();
