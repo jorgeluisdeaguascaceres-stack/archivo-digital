@@ -240,6 +240,7 @@ tr:hover td{background:var(--panel2);}
     <button class="btn btn-cyan login-btn" id="btnLogin">Ingresar</button>
     <div class="login-link" id="lnkCambiarPass">🔑 ¿Cambiar contraseña?</div>
     <div class="login-err" id="loginErr"></div>
+    <div class="login-link" id="lnkTraerUsuarios" style="margin-top:10px">☁️ Traer mis usuarios desde la nube (administrador)</div>
     <div class="login-foot">plataforma que conecta todo</div>
   </div>
 </div>
@@ -490,7 +491,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v3.0 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v3.1 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -1587,6 +1588,19 @@ $('#btnLogin').addEventListener('click',doLogin);
 $('#loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 $('#loginUser').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 (function(){var _lk=$('#lnkCambiarPass'); if(_lk) _lk.addEventListener('click',function(){ uiAlert('🔑 Cambiar contraseña','Para cambiar tu contraseña comunícate con el <b>ADMINISTRADOR (maestro)</b>, quien puede actualizarla desde el panel de usuarios.'); });})();
+(function(){var _tu=$('#lnkTraerUsuarios'); if(_tu) _tu.addEventListener('click',async function(){
+  const ok=await uiConfirm({title:'☁️ Traer usuarios desde la nube',msg:'Esto conecta Google Drive y <b>descarga a este equipo los usuarios</b> que el administrador creó en otros computadores.<br><br>Se abrirá una ventanita de Google: acepta con la cuenta del administrador.<br><br>¿Continuar?',buttons:[{text:'☁️ Sí, conectar y traer',value:true,cls:'btn-green'},{text:'Cancelar',value:false,cls:'btn-ghost'}]});
+  if(!ok) return;
+  try{
+    await getToken(true);
+    try{ await fetchEmail(); }catch(e){}
+    driveOn=true; localStorage.setItem('archivo_digital_drive_on', gEmail||'1'); updateDriveUI();
+    const n=await descargarUsuariosDeDrive();
+    if(n===false){ uiAlert('⚠️ No se pudo leer','No se pudo leer la lista de usuarios de la nube. Revisa tu internet e inténtalo otra vez.'); return; }
+    if(n===0){ uiAlert('Sin usuarios en la nube','Todavía no hay usuarios guardados en la nube. En el equipo principal, entra como <b>'+MASTER.user+'</b>, conecta Google Drive y crea/guarda los usuarios; luego vuelve a este equipo y presiona de nuevo este botón.'); return; }
+    uiAlert('✅ Listo','Se trajeron <b>'+n+'</b> usuario(s) a este equipo. Ya puedes ingresar con tu usuario y contraseña normal.');
+  }catch(e){ uiAlert('⚠️ No se pudo','No se pudo conectar con Google Drive: '+e.message); }
+});})();
 $('#btnLogout').addEventListener('click',()=>{
   localStorage.removeItem('archivo_digital_sesion');
   currentUser=null;$('#app').style.display='none';
@@ -1606,6 +1620,7 @@ $('#btnAddUser').addEventListener('click',()=>{
   users.push({user:u,pass:p,perms});saveUsers(users);
   $('#newUser').value='';$('#newPass').value='';
   renderUsuarios();toast('✅ Usuario "'+u+'" creado.');
+  if(driveOn){ subirUsuariosADrive().then(ok=>{ if(ok) toast('☁️ Usuario guardado tambien en la nube (sirve en otros equipos).'); }); }
 });
 
 function renderUsuarios(){
@@ -1614,7 +1629,7 @@ function renderUsuarios(){
   let rows=users.map((x,i)=>`<tr><td><b>${x.user}</b></td><td><span class="pill part">USUARIO</span></td><td>${x.perms.map(p=>SECCIONES[p]).join(', ')}</td><td><button class="btn btn-ghost" style="padding:4px 10px" onclick="delUser(${i})">🗑️</button></td></tr>`).join('');
   cont.innerHTML=`<table><thead><tr><th>Usuario</th><th>Rol</th><th>Permisos</th><th></th></tr></thead><tbody>${masterRow}${rows}</tbody></table>`;
 }
-window.delUser=i=>{const u=getUsers();u.splice(i,1);saveUsers(u);renderUsuarios();toast('🗑️ Usuario eliminado.');};
+window.delUser=i=>{const u=getUsers();u.splice(i,1);saveUsers(u);renderUsuarios();toast('🗑️ Usuario eliminado.'); if(driveOn){ subirUsuariosADrive(); }};
 
 /* ================= MODULO IPS ================= */
 const LS_IPS='archivo_digital_ips';
@@ -1788,6 +1803,10 @@ async function conectarDrive(){
     await fetchEmail();
     driveOn=true; localStorage.setItem('archivo_digital_drive_on', gEmail||'1'); updateDriveUI();
     toast('✅ Conectado a Google Drive'+(gEmail?' ('+gEmail+')':''));
+    const n=await descargarUsuariosDeDrive();
+    await subirUsuariosADrive();
+    if(typeof renderUsuarios==='function'){try{renderUsuarios();}catch(e){}}
+    if(n) toast('👥 '+n+' usuario(s) traidos de la nube.');
   }catch(e){toast('❌ No se pudo conectar: '+e.message);}
 }
 function updateDriveUI(){
@@ -1889,6 +1908,48 @@ async function dedupeFile(name,parent,keepId){
 async function descargarPdf(fid){
   const r=await driveFetch('https://www.googleapis.com/drive/v3/files/'+fid+'?alt=media');
   const ab=await r.arrayBuffer(); return new Uint8Array(ab);
+}
+/* ====== USUARIOS COMPARTIDOS EN LA NUBE (Google Drive) ====== */
+const DRIVE_USERS_FILE='USUARIOS_ARCHIVO_DIGITAL.json';
+async function subirUsuariosADrive(){
+  if(!driveOn) return false;
+  try{
+    const root=await ensureFevRoot();
+    const payload=JSON.stringify({usuarios:getUsers(),actualizado:new Date().toISOString()});
+    const blob=new Blob([payload],{type:'application/json'});
+    let fid=await findFile(DRIVE_USERS_FILE,root);
+    if(fid){
+      await driveFetch('https://www.googleapis.com/upload/drive/v3/files/'+fid+'?uploadType=media',{method:'PATCH',headers:{'Content-Type':'application/json'},body:blob});
+    }else{
+      const meta={name:DRIVE_USERS_FILE,parents:[root]};
+      const boundary='adu'+Date.now()+Math.random().toString(16).slice(2);
+      const enc=new TextEncoder();
+      const pre=enc.encode('--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n');
+      const post=enc.encode('\r\n--'+boundary+'--');
+      await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body:new Blob([pre,blob,post])});
+    }
+    return true;
+  }catch(e){ return false; }
+}
+async function descargarUsuariosDeDrive(){
+  if(!driveOn) return false;
+  try{
+    const root=await ensureFevRoot();
+    const fid=await findFile(DRIVE_USERS_FILE,root);
+    if(!fid) return 0;
+    const r=await driveFetch('https://www.googleapis.com/drive/v3/files/'+fid+'?alt=media');
+    const j=await r.json();
+    const remotos=(j&&Array.isArray(j.usuarios))?j.usuarios:[];
+    const map={};
+    getUsers().forEach(u=>{ if(u&&u.user) map[u.user.toUpperCase()]=u; });
+    remotos.forEach(u=>{ if(u&&u.user) map[u.user.toUpperCase()]=u; });
+    saveUsers(Object.keys(map).map(k=>map[k]));
+    return remotos.length;
+  }catch(e){ return false; }
+}
+async function sincronizarUsuariosNube(){
+  if(!driveOn) return;
+  try{ await descargarUsuariosDeDrive(); await subirUsuariosADrive(); if(typeof renderUsuarios==='function'){try{renderUsuarios();}catch(e){}} }catch(e){}
 }
 async function unirDosPdf(aBytes,bBytes){
   const out=await PDFDocument.create();
