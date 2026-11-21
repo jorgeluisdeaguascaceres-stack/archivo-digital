@@ -1,0 +1,103 @@
+===============================================================
+  GUIA PASO A PASO  -  ARCHIVO DIGITAL: MONTAR EL ROBOT
+  (Para que NINGUN PC tenga que meter Gmail y TODOS vean lo mismo)
+===============================================================
+
+OJO: Esto se hace UNA SOLA VEZ. Al final, los usuarios solo entran con su
+usuario y clave en la app; el robot se encarga de Drive por todos.
+
+IMPORTANTE: use la cuenta de Google de siempre (la del Drive con los 15 GB).
+
+===============================================================
+PARTE 1 - CREAR UNA CARPETA EN SU DRIVE
+===============================================================
+1) Abra drive.google.com con su cuenta de siempre.
+2) Cree una carpeta nueva llamada:  ARCHIVO DIGITAL
+3) Abrala. Mire la direccion (URL) del navegador. Vera algo asi:
+      https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz
+   Copie ese codigo largo que va despues de /folders/
+      (ejemplo: 1AbCdEfGhIjKlMnOpQrStUvWxYz)
+   ESO es su CARPETA RAIZ. Guardelo, lo usara en el paso 3.6.
+
+===============================================================
+PARTE 2 - SACAR LA LLAVE DE GOOGLE (refresco)
+===============================================================
+Si YA tiene las credenciales OAuth de la cuenta de siempre (Client ID y
+Client Secret) que uso en otro sistema, puede saltar al paso 2.4.
+
+2.1) Entre a console.cloud.google.com con su cuenta de siempre.
+2.2) Arriba, cree/escolja un proyecto. Luego:
+     APIs y servicios -> Biblioteca -> busque "Google Drive API" -> Habilitar.
+2.3) APIs y servicios -> Pantalla de consentimiento de OAuth:
+     - Tipo: Externo (o Interno si tiene Workspace).
+     - Ponga un nombre (ej: Archivo Digital IPS).
+     - En "Usuarios de prueba" (si esta En prueba): agregue el correo dueño
+       del Drive y los correos que vaya a usar.
+     - Guarde.
+2.4) APIs y servicios -> Credenciales -> Crear credenciales ->
+     ID de cliente de OAuth  ->  tipo: "Aplicacion web".
+     - Como "URI de redireccionamiento autorizado" agregue EXACTAMENTE:
+            http://localhost:53682/oauth2callback
+     - Guarde y copie el CLIENT ID y el CLIENT SECRET.
+
+2.5) Ahora, en SU computador (no en Render), abra una terminal dentro de esta
+     carpeta del robot y ejecute (reemplace xxx/yyy):
+
+     WINDOWS (PowerShell):
+       $env:GOOGLE_OAUTH_CLIENT_ID="xxx"
+       $env:GOOGLE_OAUTH_CLIENT_SECRET="yyy"
+       node get_refresh_token.js
+
+     MAC / LINUX:
+       GOOGLE_OAUTH_CLIENT_ID=xxx GOOGLE_OAUTH_CLIENT_SECRET=yyy node get_refresh_token.js
+
+   (Antes de eso instale las piezas con:  npm install )
+
+2.6) El programa le imprimira una direccion. Abrala en el navegador, autorice
+     con su Gmail de siempre y acepte. La terminal le mostrara una LLAVE larga:
+        1//0gXXXXXXXXXXXX...
+     ESA es su GOOGLE_OAUTH_REFRESH_TOKEN. Guardela.
+
+===============================================================
+PARTE 3 - SUBIR EL ROBOT A GITHUB
+===============================================================
+3.1) En github.com cree un repositorio nuevo:  archivo-digital-robot
+3.2) Suba TODO el contenido de esta carpeta (server.js, drive_upload.js,
+     get_refresh_token.js, package.json, render.yaml).
+
+===============================================================
+PARTE 4 - DESPLEGAR EN RENDER
+===============================================================
+4.1) En render.com: New + -> Web Service -> conecte el repositorio
+     archivo-digital-robot.
+4.2) Ajustes:
+     - Environment: Node
+     - Build Command:  npm install
+     - Start Command:  node server.js
+     - Plan: Free
+4.3) En "Environment -> Add Environment Variable" agregue estas 5:
+     GOOGLE_OAUTH_CLIENT_ID        = (el Client ID del paso 2.4)
+     GOOGLE_OAUTH_CLIENT_SECRET    = (el Client Secret del paso 2.4)
+     GOOGLE_OAUTH_REFRESH_TOKEN    = (la LLAVE del paso 2.6)
+     GOOGLE_DRIVE_FOLDER_ID        = (la CARPETA RAIZ del paso 1.3)
+     DRIVE_UPLOAD_TOKEN            = (invente una clave larga, ej: AD_IPC_2026x9f3k)
+4.4) Deje que Render haga el despliegue y espere a que diga "Live".
+4.5) Copie la direccion que le dio Render (algo como
+     https://archivo-digital-robot.onrender.com).  ESA es la
+     DIRECCION DEL ROBOT. Se la mandara al asistente.
+
+===============================================================
+PARTE 5 - PROBAR EL ROBOT (sin la app todavia)
+===============================================================
+5.1) Abra en el navegador:
+     https://SU-DIRECCION.onrender.com/drive/diag?token=SU_DRIVE_UPLOAD_TOKEN
+     Debe decir  "ok": true  y  "Todo listo: el robot SI puede guardar en
+     Drive"..........  (o, segun como se proteja, abralo con su token).
+5.2) Abra:
+     https://SU-DIRECCION.onrender.com/datos/cargar
+     Debe responder con "ok": true  y una lista vacia (stores {}).
+
+Si los dos responden BIEN, el robot quedo listo. Mandele al asistente:
+   - la DIRECCION DEL ROBOT
+   - el DRIVE_UPLOAD_TOKEN
+Asi conecto la app ARCHIVO DIGITAL al robot y se termina todo.

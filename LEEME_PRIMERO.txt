@@ -1,0 +1,37 @@
+===============================================================
+  ARCHIVO DIGITAL - ROBOT SERVIDOR (INDEPENDIENTE)
+===============================================================
+
+QUE ES ESTO
+-----------
+Este es el "robot" que guarda los soportes PDF y los datos compartidos
+de ARCHIVO DIGITAL en TU Google Drive de 15 GB. Con el robot puesto, NADIE
+tiene que iniciar sesion con Gmail en su PC: el robot lo hace por todos y
+asi TODOS los computadores ven lo mismo, en cualquier lugar del mundo.
+
+Es TOTALMENTE INDEPENDIENTE de NEXUSMED. Tiene su propia app de Google, su
+propia carpeta en el Drive y su propio despliegue en Render. No se mezcla
+con ningun otro sistema.
+
+---------------------------------------------------------------
+QUE TIENE QUE HACER (RESUMEN)
+---------------------------------------------------------------
+1) Crear/obtener sus credenciales de Google (Client ID, Client Secret).
+2) Sacar UNA llave (refresh token) - hay un archivo aqui que la saca sola.
+3) Crear UNA carpeta en su Drive para ARCHIVO DIGITAL.
+4) Subir esta carpeta del robot a GitHub y desplegarla en Render (Web Service).
+5) Pegar las 4 variables de entorno en Render.
+6) Probar el robot con la direccion /drive/diag.
+7) Probar los datos con /datos/cargar.
+
+El paso a paso detallado esta en el archivo PASOS_RENDER.txt
+
+---------------------------------------------------------------
+ARCHIVOS
+---------------------------------------------------------------
+- server.js              -> el robot (lo que corre en Render)
+- drive_upload.js        -> el motor que habla con Google Drive
+- get_refresh_token.js   -> saca la llave (refresh token) UNA vez
+- package.json           -> lista de piezas que Render instala
+- render.yaml            -> configuracion opcional de Render
+- PASOS_RENDER.txt       -> guia paso a paso

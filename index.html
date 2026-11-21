@@ -331,12 +331,14 @@ tr:hover td{background:var(--panel2);}
         </div>
         <div class="btn-row">
           <button class="btn btn-cyan" id="btnCrear">➕ Crear carpeta del lote</button>
+          <label class="btn btn-ghost" style="cursor:pointer;margin:0" title="Sube un Excel con los números de las carpetas (columna A)">📁 Crear carpetas en lote (Excel)<input type="file" id="carpetasExcel" accept=".xlsx,.xls,.csv" style="display:none"></label>
           <button class="btn btn-ghost" id="btnConsultarDrive">☁️ Ver lo cargado en Drive</button>
           <button class="btn btn-ghost" id="btnNuevoLote">🔄 Nuevo lote</button>
           <span class="badge" id="nombreEjemplo">CRC_819004318_1.pdf</span>
         </div>
         <div class="statusbar" id="statusbar">Escribe el N° del lote para comenzar.</div>
         <div class="hint">Al conectar Google Drive, cada lote se sube solo a la carpeta <b>FACTURACION EVENTO</b>, dentro de una subcarpeta con el número del lote, con los PDF ya renombrados.</div>
+        <div class="hint">📁 <b>Crear carpetas en lote</b>: sube un Excel (o CSV) con los números de las carpetas en la <b>columna A</b>, uno por fila, y las crea <b>TODAS de una vez</b> dentro de <b>FACTURACION EVENTO</b>. Si vuelves a subir la misma lista, <b>no se crean repetidas</b>.</div>
       </div>
 
       <div class="card-box">
@@ -491,7 +493,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v3.1 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v3.2 · ☁️ DRIVE FIJO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -2083,6 +2085,99 @@ async function subirLoteADrive(pdfMap,lote){
   for(const nombre in pdfMap){await uploadPdfCached(lote,nombre,pdfMap[nombre],loteFolder);n++;}
   return n;
 }
+
+/* ===== 📁 CREAR CARPETAS EN LOTE DESDE EXCEL (v3.2) =====
+   Subes un Excel/CSV con los NÚMEROS de las carpetas en la columna A
+   (uno por fila) y crea TODAS las carpetas de una vez dentro de
+   FACTURACION EVENTO. Las que ya existen NO se duplican: se dejan igual.
+   Sirve para montar el mes completo sin escribir carpeta por carpeta. */
+function normalizarNombreCarpeta(v){
+  let s=String(v==null?'':v).trim();
+  if(!s) return '';
+  s=s.replace(/^\.0+$/,'');
+  s=s.replace(/^\uFEFF/,'');            /* marca rara al inicio del CSV */
+  s=s.replace(/^["']+|["']+$/g,'');     /* comillas pegadas */
+  s=s.replace(/\s+/g,' ');              /* espacios repetidos */
+  s=s.replace(/\.0+$/,'');              /* 466507.0 -> 466507 */
+  if(/^\d{1,3}(\.\d{3})+$/.test(s)) s=s.replace(/\./g,''); /* 466.507 -> 466507 */
+  return s;
+}
+function esEncabezadoCarpeta(s){
+  return /^(nombre( de la)? carpeta|carpeta|carpetas|lote|lotes|numero|n[uú]mero( de la)? carpeta|n[°º]|no\.?|nit|orden)$/i.test(String(s).trim());
+}
+async function crearCarpetasEnLote(lista){
+  const root=await ensureFevRoot();
+  const creadas=[], existentes=[], errores=[];
+  const total=lista.length;
+  const sb=$('#statusbar');
+  for(let i=0;i<total;i++){
+    const nombre=lista[i];
+    if(sb) sb.textContent='📁 Creando carpetas... '+(i+1)+' de '+total+' ('+nombre+')';
+    try{
+      let fid=await findFolder(nombre,root);
+      if(fid){ existentes.push(nombre); }
+      else{
+        try{ fid=await createFolder(nombre,root); creadas.push(nombre); }
+        catch(e1){
+          /* Google a veces frena si van muchas seguidas: esperamos y reintentamos 1 vez */
+          await new Promise(r=>setTimeout(r,1200));
+          fid=await createFolder(nombre,root); creadas.push(nombre);
+        }
+      }
+      const store=driveIdStore(); store[nombre]=store[nombre]||{files:{}};
+      store[nombre].folderId=fid; saveDriveIdStore(store);
+    }catch(e){
+      errores.push(nombre+' → '+e.message);
+    }
+  }
+  return {creadas,existentes,errores};
+}
+(function(){
+  const inp=$('#carpetasExcel');
+  if(!inp) return;
+  inp.addEventListener('change',async function(){
+    const file=this.files&&this.files[0]; this.value='';
+    if(!file) return;
+    if(!driveOn){toast('⚠️ Primero conéctate a Google Drive (botón ☁️ de arriba).');return;}
+    if(typeof XLSX==='undefined'){toast('❌ El lector de Excel aún carga, intenta en 5 segundos.');return;}
+    try{
+      const buf=await file.arrayBuffer();
+      const wb=XLSX.read(buf,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const filas=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''});
+      const vistos={}, lista=[];
+      filas.forEach((row,i)=>{
+        if(!row) return;
+        /* Toma la primera celda con contenido (normalmente la columna A) */
+        let bruto='';
+        for(let c=0;c<row.length;c++){ const s=normalizarNombreCarpeta(row[c]); if(s){ bruto=s; break; } }
+        if(!bruto) return;
+        if(esEncabezadoCarpeta(bruto)) return;
+        if(i===0 && !/\d/.test(bruto)) return;   /* salta títulos sin números */
+        if(bruto.length>40) return;
+        const k=bruto.toLowerCase();
+        if(vistos[k]) return;                    /* no repetir números */
+        vistos[k]=1; lista.push(bruto);
+      });
+      if(!lista.length){toast('⚠️ El Excel no tiene números de carpeta válidos en la columna A.');return;}
+      const muestra=lista.slice(0,6).join(', ')+(lista.length>6?'…':'');
+      const seguir=await uiConfirm({
+        title:'📁 Crear carpetas en lote',
+        msg:'Se van a crear <b>'+lista.length+'</b> carpeta(s) dentro de <b>FACTURACION EVENTO</b>.<br><br><span style="color:#9fb3c8">Ejemplo: '+muestra+'</span><br><br>Las que ya estén creadas <b>no se repiten</b>. ¿Continuar?',
+        buttons:[{text:'Sí, crear todas',value:true,cls:'btn-green'},{text:'Cancelar',value:false,cls:'btn-ghost'}]
+      });
+      if(!seguir){ const s2=$('#statusbar'); if(s2) s2.textContent='Creación de carpetas cancelada.'; return; }
+      const r=await crearCarpetasEnLote(lista);
+      const sb=$('#statusbar');
+      if(sb) sb.innerHTML='✅ Carpetas en lote: <b>'+r.creadas.length+' creada(s)</b> · '+r.existentes.length+' ya existían'+(r.errores.length?(' · '+r.errores.length+' con problema'):'')+'.';
+      toast('✅ '+r.creadas.length+' carpeta(s) creada(s)'+(r.existentes.length?(' · '+r.existentes.length+' ya existían'):'')+(r.errores.length?(' · '+r.errores.length+' con problema'):'')+'.');
+      try{ sincronizarBusquedaConDrive(); }catch(e){}
+      if(r.errores.length){
+        await uiAlert('Algunas carpetas no se pudieron crear','<div style="text-align:left;max-height:260px;overflow:auto">'+r.errores.map(e=>'• '+e).join('<br>')+'</div>');
+      }
+    }catch(e){toast('❌ No se pudo leer el Excel: '+e.message);}
+  });
+})();
 
 /* ---------- INIT ---------- */
 buildCards();
