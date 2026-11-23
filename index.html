@@ -357,6 +357,7 @@ tr:hover td{background:var(--panel2);}
       <div class="card-box">
         <div class="busq-sticky">
         <div class="sec-title">Búsqueda de documentos guardados</div>
+        <div id="busqDriveAviso" class="ips-note" style="display:none;margin-bottom:10px"><i class="fas fa-cloud"></i><div><b>Este equipo todavía no está conectado a Google Drive.</b> Por eso no aparecen las carpetas ni los soportes que ya creaste en otro PC. Conéctate con la cuenta <b>facturacionevnto2026@gmail.com</b> y se traerán solos. <button class="btn btn-cyan" style="margin-left:8px;padding:5px 11px;font-size:11.5px" onclick="conectarDrive()">☁️ Conectar y traer mis carpetas</button></div></div>
         <div class="searchwrap" style="align-items:center;gap:10px;flex-wrap:wrap">
           <div class="field" style="max-width:260px"><input id="buscaGlobal" placeholder="Escribe el lote y pulsa Enter..."></div>
           <label class="btn btn-ghost" style="cursor:pointer;margin:0">📄 Cambio masivo (Excel)<input type="file" id="renombreExcel" accept=".xlsx,.xls" style="display:none"></label>
@@ -493,7 +494,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v3.2 · ☁️ DRIVE FIJO</div>
+<div class="verbadge">ARCHIVO DIGITAL v3.3 · ☁️ DRIVE COMPARTIDO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -892,7 +893,7 @@ $('#buscaGlobal').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDe
 (function(){const b=$('#btnSincroDrive'); if(b) b.addEventListener('click',async()=>{
   if(!driveOn){toast('⚠️ Conéctate a Google Drive para actualizar.');return;}
   toast('☁️ Revisando Google Drive...');
-  await sincronizarBusquedaConDrive();
+  await sincronizarBusquedaConDrive(true);
 });})();
 function renderBusqueda(){
   const q=($('#buscaGlobal')?.value||'').trim().toLowerCase();
@@ -1041,7 +1042,7 @@ async function renombrarCarpetaDrive(oldName,newName){
   if(existeNueva && existeNueva!==folderId) return {ok:false,msg:'Ya existe una carpeta "'+newName+'" en Drive.'};
   await driveFetch('https://www.googleapis.com/drive/v3/files/'+folderId+'?fields=id',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:String(newName)})});
   try{
-    const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name)&spaces=drive');
+    const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name)&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true');
     const j=await r.json();
     if(j.files){for(const f of j.files){const nn=reemplazarLoteEnNombre(f.name,oldName,newName); if(nn!==f.name){try{await driveFetch('https://www.googleapis.com/drive/v3/files/'+f.id+'?fields=id',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nn})});}catch(e){}}}}
   }catch(e){}
@@ -1323,7 +1324,7 @@ window.ccDescargarZip=async function(id){
       const sub=base.folder(String(lote).replace(/[^\w.-]/g,'_'));
       const folderId=await findFolder(String(lote),root);
       if(!folderId){ sub.file('_SIN_CARPETA_EN_DRIVE.txt','No se encontró la carpeta "'+lote+'" en Google Drive.'); continue; }
-      const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name,mimeType)&spaces=drive');
+      const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name,mimeType)&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true');
       const j=await r.json();
       for(const f of (j.files||[])){
         if(f.mimeType && f.mimeType.indexOf('folder')>=0) continue;
@@ -1519,7 +1520,7 @@ async function valDescargarZip(){
       const base='FEV_'+nit+'_'+n; const sx=fXML.folder(n); sx.file(base+'.json',g.json.texto); sx.file(base+'.xml',g.xml.texto); nXml++;
       const ss=fSOP.folder(n);
       if(root){ try{ let folderId=await findFolder(String(n),root); if(!folderId&&lote&&lote!==n)folderId=await findFolder(String(lote),root);
-        if(folderId){ const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name,mimeType)&spaces=drive'); const j=await r.json();
+        if(folderId){ const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name,mimeType)&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true'); const j=await r.json();
           for(const f of (j.files||[])){ if(f.mimeType&&f.mimeType.indexOf('folder')>=0)continue; try{const bytes=await descargarPdf(f.id); ss.file(f.name,bytes); nPdf++;}catch(e){fallos++;} }
         } else { ss.file('_SIN_CARPETA_EN_DRIVE.txt','No se encontró en Google Drive la carpeta de la factura "'+n+'" ni la del lote "'+lote+'".'); }
       }catch(e){fallos++;} }
@@ -1752,17 +1753,19 @@ function renderIps(){
 /* ================= GOOGLE DRIVE ================= */
 const GCLIENT_ID='523064756999-mgtbvhnh32puucqh13canqn67lq4dogn.apps.googleusercontent.com';
 const ADMIN_EMAIL='facturacionevnto2026@gmail.com'; /* correo FIJO del Drive del hospital */
-const DRIVE_SCOPE='openid email https://www.googleapis.com/auth/drive.file';
+/* ACCESO COMPLETO a Drive: con drive.file la app SOLO veía los archivos que ella misma creó
+   en ese mismo equipo; por eso en otro PC no salían las carpetas ya creadas. */
+const DRIVE_SCOPE='openid email https://www.googleapis.com/auth/drive';
+const DRIVE_SCOPE_MIN='openid email https://www.googleapis.com/auth/drive.file';
 let lotesConfirmados={}; /* lotes cuyo aviso "ya existe" ya respondió el usuario */
 const LS_FEVID='archivo_digital_fev_folder_id';
 let tokenClient=null, gToken=null, gTokenExp=0, gEmail=null, driveOn=false;
-let _tokRes=null,_tokRej=null;
+let _tokRes=null,_tokRej=null,_scopeMin=false;
 
 function gisReady(){return typeof google!=='undefined' && google.accounts && google.accounts.oauth2;}
-function initDrive(){
-  if(!gisReady()){setTimeout(initDrive,400);return;}
+function armarTokenClient(scope){
   tokenClient=google.accounts.oauth2.initTokenClient({
-    client_id:GCLIENT_ID, scope:DRIVE_SCOPE, hint:ADMIN_EMAIL,
+    client_id:GCLIENT_ID, scope:scope, hint:ADMIN_EMAIL,
     callback:(resp)=>{
       if(resp && resp.error){ if(_tokRej)_tokRej(new Error(resp.error)); _tokRes=_tokRej=null; return; }
       gToken=resp.access_token;
@@ -1771,6 +1774,10 @@ function initDrive(){
     },
     error_callback:(err)=>{ if(_tokRej)_tokRej(new Error((err&&err.type)||'cancelado')); _tokRes=_tokRej=null; }
   });
+}
+function initDrive(){
+  if(!gisReady()){setTimeout(initDrive,400);return;}
+  armarTokenClient(_scopeMin?DRIVE_SCOPE_MIN:DRIVE_SCOPE);
   updateDriveUI();
   const savedDrive=localStorage.getItem('archivo_digital_drive_on');
   if(savedDrive){
@@ -1780,17 +1787,31 @@ function initDrive(){
        El token se obtiene solo cuando el usuario hace una acción que use Drive. */
   }
 }
-function getToken(interactive){
+function pedirToken(prompt){
   return new Promise((resolve,reject)=>{
     if(gToken && Date.now()<gTokenExp){resolve(gToken);return;}
     if(!tokenClient){reject(new Error('Google todavía está cargando. Espera 5 segundos y vuelve a intentar.'));return;}
     let done=false;
     _tokRes=(v)=>{if(done)return;done=true;resolve(v);};
     _tokRej=(e)=>{if(done)return;done=true;reject(e);};
-    try{ tokenClient.requestAccessToken({prompt:''}); }
+    try{ tokenClient.requestAccessToken({prompt:prompt||''}); }
     catch(e){ _tokRej(e); return; }
-    setTimeout(()=>{ if(!done){done=true;reject(new Error('timeout'));} }, interactive?60000:9000);
+    setTimeout(()=>{ if(!done){done=true;reject(new Error('timeout'));} }, 60000);
   });
+}
+async function getToken(interactive){
+  try{ return await pedirToken(''); }
+  catch(e){
+    const m=String((e&&e.message)||'').toLowerCase();
+    /* Si Google no acepta el permiso completo, se intenta con el permiso mínimo (drive.file)
+       para que la app siga funcionando como antes. */
+    if(!_scopeMin && (m.indexOf('invalid_scope')>=0 || m.indexOf('invalid_request')>=0)){
+      _scopeMin=true; armarTokenClient(DRIVE_SCOPE_MIN);
+      toast('☁️ Google pidió permiso reducido: se usará el modo compatible.');
+      return await pedirToken('consent');
+    }
+    throw e;
+  }
 }
 async function fetchEmail(){
   try{
@@ -1809,12 +1830,21 @@ async function conectarDrive(){
     await subirUsuariosADrive();
     if(typeof renderUsuarios==='function'){try{renderUsuarios();}catch(e){}}
     if(n) toast('👥 '+n+' usuario(s) traidos de la nube.');
+    /* Al conectar (sobre todo en un PC nuevo) traemos enseguida las carpetas y soportes que ya existen */
+    if(gEmail && String(gEmail).toLowerCase().indexOf(String(ADMIN_EMAIL).toLowerCase())<0) toast('⚠️ Conectaste '+gEmail+'. Las carpetas están en '+ADMIN_EMAIL+'; si no aparecen, reconecta con esa cuenta.');
+    await sincronizarBusquedaConDrive(true);
   }catch(e){toast('❌ No se pudo conectar: '+e.message);}
 }
 function updateDriveUI(){
   const b=$('#btnConectarDrive'),s=$('#driveStatus');
+  const av=$('#busqDriveAviso'); if(av)av.style.display=driveOn?'none':'';
   if(!b||!s)return;
-  if(driveOn){b.textContent='☁️ Reconectar Google Drive';s.textContent='Conectado'+(gEmail?': '+gEmail:'');s.style.color='#7fe39a';s.style.borderColor='var(--green)';}
+  if(driveOn){
+    b.textContent='☁️ Reconectar Google Drive';
+    s.textContent='Conectado'+(gEmail?': '+gEmail:'');
+    s.style.color='#7fe39a';s.style.borderColor='var(--green)';
+    if(gEmail && String(gEmail).toLowerCase().indexOf(String(ADMIN_EMAIL).toLowerCase())<0){ s.textContent='Conectado: '+gEmail+' (⚠ otra cuenta)'; s.style.color='#ffd48a'; s.style.borderColor='#a8802a'; }
+  }
   else{b.textContent='☁️ Conectar con Google Drive';s.textContent='No conectado';s.style.color='';s.style.borderColor='';}
 }
 async function validToken(){
@@ -1845,7 +1875,7 @@ async function driveFetch(url,opts){
 async function findFolder(name,parent){
   let q="mimeType='application/vnd.google-apps.folder' and trashed=false and name='"+String(name).replace(/'/g,"\\'")+"'";
   if(parent)q+=" and '"+parent+"' in parents";
-  const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name)&spaces=drive');
+  const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name)&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true');
   const j=await r.json();return (j.files&&j.files[0])?j.files[0].id:null;
 }
 async function createFolder(name,parent){
@@ -1864,13 +1894,26 @@ async function ensureFevRoot(){
   if(id){
     try{const r=await driveFetch('https://www.googleapis.com/drive/v3/files/'+id+'?fields=id,trashed');const j=await r.json();if(j.id&&!j.trashed)return id;}catch(e){}
   }
-  id=await ensureFolder('FACTURACION EVENTO',null);
-  localStorage.setItem(LS_FEVID,id);
-  return id;
+  /* Puede haber más de una carpeta "FACTURACION EVENTO" (una vacía y otra con los lotes).
+     Nos quedamos con la que tenga MÁS carpetas dentro, que es la que realmente se está usando. */
+  let best=null,bestN=-1;
+  try{
+    const q="trashed=false and mimeType='application/vnd.google-apps.folder' and name='FACTURACION EVENTO'";
+    const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name)&pageSize=100&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true');
+    const j=await r.json();
+    for(const f of (j.files||[])){
+      let n=0;
+      try{const r2=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and mimeType='application/vnd.google-apps.folder' and '"+f.id+"' in parents")+'&fields=files(id)&pageSize=1000&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true');const j2=await r2.json();n=(j2.files||[]).length;}catch(e){}
+      if(n>bestN){bestN=n;best=f.id;}
+    }
+  }catch(e){}
+  if(!best) best=await createFolder('FACTURACION EVENTO',null);
+  localStorage.setItem(LS_FEVID,best);
+  return best;
 }
 async function findFile(name,parent){
   let q="trashed=false and name='"+String(name).replace(/'/g,"\\'")+"' and '"+parent+"' in parents";
-  const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name)&spaces=drive');
+  const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name)&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true');
   const j=await r.json();return (j.files&&j.files[0])?j.files[0].id:null;
 }
 function driveIdStore(){try{return JSON.parse(localStorage.getItem('archivo_digital_drive_ids')||'{}');}catch(e){return {};}}
@@ -1902,7 +1945,7 @@ async function createPdf(name,blob,parent){
 async function dedupeFile(name,parent,keepId){
   try{
     let q="trashed=false and name='"+String(name).replace(/'/g,"\\'")+"' and '"+parent+"' in parents";
-    const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id)&spaces=drive');
+    const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id)&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true');
     const j=await r.json();
     if(j.files){for(const f of j.files){if(f.id!==keepId){try{await driveFetch('https://www.googleapis.com/drive/v3/files/'+f.id,{method:'DELETE'});}catch(e){}}}}
   }catch(e){}
@@ -2007,7 +2050,7 @@ async function refrescarEstadoDesdeDrive(lote){
     const folderId=await findFolder(String(lote),root);
     const enDrive={};
     if(folderId){
-      const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name)&spaces=drive');
+      const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name)&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true');
       const j=await r.json();
       for(const f of (j.files||[])){
         const nn=String(f.name).replace(/^RED(?=[_\-\. ])/i,'PDX');
@@ -2033,24 +2076,45 @@ async function refrescarEstadoDesdeDrive(lote){
    y no estén en la lista, y marca como ✓ cargado lo que ya esté en Drive
    (sin borrar nada). Se ejecuta solo al abrir Búsqueda o con el botón Actualizar. */
 let _sincroEnCurso=false;
-async function sincronizarBusquedaConDrive(){
-  if(!driveOn || _sincroEnCurso) return;
+/* Rescate: busca en TODO el Drive las carpetas que contengan soportes nombrados con el NIT
+   (TIPO_NIT_LOTE.pdf), aunque estén fuera de FACTURACION EVENTO. */
+async function _carpetasPorNIT(nit){
+  const ids={},res=[];
+  if(!nit)return res;
+  try{
+    const q="trashed=false and name contains '"+String(nit)+"'";
+    const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name,parents)&pageSize=1000&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true');
+    const j=await r.json();
+    for(const f of (j.files||[])){ for(const p of (f.parents||[])) ids[p]=1; }
+  }catch(e){}
+  for(const id in ids){
+    try{ const r=await driveFetch('https://www.googleapis.com/drive/v3/files/'+id+'?fields=id,name,mimeType'); const j=await r.json(); if(String(j.mimeType||'').indexOf('folder')>=0) res.push({id:j.id,name:j.name}); }catch(e){}
+  }
+  return res;
+}
+async function sincronizarBusquedaConDrive(forzar){
+  if(!driveOn){ toast('☁️ Primero conecta Google Drive en este equipo.'); return; }
+  if(_sincroEnCurso) return;
   _sincroEnCurso=true;
+  if(forzar){ try{ localStorage.removeItem(LS_FEVID); }catch(e){} }
   let root;
-  try{ root=await ensureFevRoot(); }catch(e){ _sincroEnCurso=false; return; }
+  try{ root=await ensureFevRoot(); }catch(e){ _sincroEnCurso=false; toast('❌ No se pudo abrir la carpeta de Drive: '+(e.message||e)); return; }
   let data=JSON.parse(localStorage.getItem(LS_LOTES)||'[]');
   const SEP=String(sep()||'_');
-  let cambios=false, nuevas=0;
+  const NIT=String(($('#cfgNit')&&$('#cfgNit').value)||'').trim();
+  let cambios=false, nuevas=0, total=0;
   try{
-    /* 1) Todas las carpetas (lotes) que hay en Drive */
-    const rf=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and mimeType='application/vnd.google-apps.folder' and '"+root+"' in parents")+'&fields=files(id,name)&spaces=drive&pageSize=1000');
+    const rf=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and mimeType='application/vnd.google-apps.folder' and '"+root+"' in parents")+'&fields=files(id,name)&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true&pageSize=1000');
     const jf=await rf.json();
-    const carpetas=jf.files||[];
+    let carpetas=jf.files||[];
+    /* Si la carpeta elegida está vacía, buscamos las carpetas de lotes en todo el Drive */
+    if(!carpetas.length) carpetas=await _carpetasPorNIT(NIT);
+    total=carpetas.length;
     for(const carp of carpetas){
       /* archivos dentro de la carpeta */
       let enDrive=[];
       try{
-        const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+carp.id+"' in parents")+'&fields=files(id,name)&spaces=drive');
+        const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+carp.id+"' in parents")+'&fields=files(id,name)&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true');
         const j=await r.json();
         const files=(j.files||[]);
         /* MIGRAR RED -> PDX en Drive: solo renombra el archivo, el PDF se conserva */
@@ -2064,8 +2128,8 @@ async function sincronizarBusquedaConDrive(){
       let nitDet='';
       for(const nm of enDrive){ const p=String(nm).replace(/\.pdf$/i,'').split(SEP); if(p.length>=3){ nitDet=p[1]; break; } }
       let lote=data.find(l=>String(l.lote)===String(carp.name));
-      if(!lote){ lote={nit:nitDet,lote:carp.name,docs:[],fecha:new Date().toLocaleString('es-CO')}; data.unshift(lote); cambios=true; nuevas++; }
-      if(!lote.nit && nitDet){ lote.nit=nitDet; cambios=true; }
+      if(!lote){ lote={nit:nitDet||NIT,lote:carp.name,docs:[],fecha:new Date().toLocaleString('es-CO')}; data.unshift(lote); cambios=true; nuevas++; }
+      if(!lote.nit && (nitDet||NIT)){ lote.nit=nitDet||NIT; cambios=true; }
       lote.docs=lote.docs||[];
       const have=new Set(lote.docs.map(d=>d.tipo));
       DOC_TYPES.forEach(d=>{
@@ -2073,10 +2137,12 @@ async function sincronizarBusquedaConDrive(){
         if(encontrado && !have.has(d.id)){ lote.docs.push({tipo:d.id,nombre:encontrado}); have.add(d.id); cambios=true; }
       });
     }
-  }catch(e){}
+  }catch(e){ }
   if(cambios){ localStorage.setItem(LS_LOTES,JSON.stringify(data)); }
   renderBusqueda(); actualizarTotal();
-  if(cambios) toast('☁️ Lista actualizada con Google Drive'+(nuevas?(' ('+nuevas+' carpeta(s) nueva(s))'):'')+'.');
+  if(total===0) toast('⚠️ Drive respondió, pero no se encontró ninguna carpeta de lote. Revisa que el correo conectado sea '+ADMIN_EMAIL+' y que las carpetas estén en ese Drive.');
+  else if(cambios) toast('☁️ Lista actualizada desde Drive: '+total+' carpeta(s) revisadas'+(nuevas?(' · '+nuevas+' nueva(s)'):'')+'.');
+  else toast('☁️ Al día: '+total+' carpeta(s) revisadas, nada nuevo.');
   _sincroEnCurso=false;
 }
 async function subirLoteADrive(pdfMap,lote){
