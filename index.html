@@ -200,6 +200,11 @@ tr:hover td{background:var(--panel2);}
 .val-txt{flex:1;background:transparent;border:0;color:#c9f0ff;font-family:'Fira Code',monospace;font-size:12px;padding:10px;resize:vertical;min-height:220px;outline:none;line-height:1.5;white-space:pre;}
 .btn.mini{padding:6px 11px;font-size:11.5px;}
 /* ===== MODULO IPS ===== */
+.cfg-head{display:flex;align-items:center;gap:13px;margin:0 0 14px;padding:14px 16px;border-radius:14px;background:linear-gradient(120deg,rgba(34,211,238,.12),rgba(72,160,213,.05));border:1px solid rgba(34,211,238,.25);}
+.cfg-head .ci{width:46px;height:46px;border-radius:13px;background:var(--grad-cyan);display:flex;align-items:center;justify-content:center;font-size:21px;color:#04121a;box-shadow:0 8px 22px -10px rgba(6,182,212,.8);flex-shrink:0;}
+.cfg-head .ct{font-size:17px;font-weight:800;color:#eaf4fb;letter-spacing:.2px;}
+.cfg-head .cs{font-size:11.5px;color:var(--muted);margin-top:2px;}
+.cfg-ico{width:34px;height:34px;border-radius:10px;background:rgba(34,211,238,.14);border:1px solid rgba(34,211,238,.32);display:inline-flex;align-items:center;justify-content:center;color:var(--cyan2);font-size:15px;flex-shrink:0;}
 .ips-note{display:flex;align-items:flex-start;gap:9px;background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.22);color:#bfe9f7;border-radius:10px;padding:10px 13px;font-size:12px;line-height:1.5;}
 .ips-note i{color:var(--cyan2);margin-top:2px;}
 .ips-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:14px;}
@@ -297,7 +302,6 @@ tr:hover td{background:var(--panel2);}
     <div class="side-item active" data-view="documentos" data-perm="documentos"><span class="ic">📂</span> Documentos</div>
     <div class="side-item" data-view="busqueda" data-perm="busqueda"><span class="ic">🔍</span> Búsqueda</div>
     <div class="side-item" data-view="cuentas" data-perm="cuentas"><span class="ic">🧾</span> Cuentas de cobro</div>
-    <div class="side-item" data-view="ips" data-perm="ips"><span class="ic">🏥</span> IPS</div>
     <div class="side-item" data-view="configuraciones" data-perm="configuraciones"><span class="ic">⚙️</span> Configuraciones</div>
   </aside>
 
@@ -360,21 +364,22 @@ tr:hover td{background:var(--panel2);}
         <div id="busqDriveAviso" class="ips-note" style="display:none;margin-bottom:10px"><i class="fas fa-cloud"></i><div><b>Este equipo todavía no está conectado a Google Drive.</b> Por eso no aparecen las carpetas ni los soportes que ya creaste en otro PC. Conéctate con la cuenta <b>facturacionevnto2026@gmail.com</b> y se traerán solos. <button class="btn btn-cyan" style="margin-left:8px;padding:5px 11px;font-size:11.5px" onclick="conectarDrive()">☁️ Conectar y traer mis carpetas</button></div></div>
         <div class="searchwrap" style="align-items:center;gap:10px;flex-wrap:wrap">
           <div class="field" style="max-width:260px"><input id="buscaGlobal" placeholder="Escribe el lote y pulsa Enter..."></div>
-          <label class="btn btn-ghost" style="cursor:pointer;margin:0">📄 Cambio masivo (Excel)<input type="file" id="renombreExcel" accept=".xlsx,.xls" style="display:none"></label>
+          <label class="btn btn-ghost" id="lblRenombreExcel" style="cursor:pointer;margin:0">📄 Cambio masivo (Excel)<input type="file" id="renombreExcel" accept=".xlsx,.xls" style="display:none"></label>
           <button class="btn btn-ghost" id="btnPlantillaExcel">⬇️ Plantilla</button>
           <button class="btn btn-cyan" id="btnSincroDrive">🔄 Actualizar con Drive</button>
           <button class="btn btn-cyan" id="btnAdjuntarFEV" title="Adjunta y guarda el PDF de la factura (FEV) para TODAS las facturas que aún no lo tienen">⚡ Adjuntar facturas en lote</button>
           <button class="btn btn-ghost" id="btnElegirCarpetaFEV" title="Elegir o cambiar la carpeta del computador donde están los PDF de las facturas">📁 Carpeta</button>
         </div>
-        <div class="hint" style="margin:8px 0 2px"><b>Enter</b> = trae justo esa carpeta. <b>✏️ Renombrar</b> cambia el nombre en la app y en Google Drive. <b>Cambio masivo (Excel)</b>: columna A = nombre ACTUAL, columna B = nombre NUEVO.</div>
-        <div class="hint" style="margin:2px 0 2px"><b>⚡ Adjuntar facturas en lote</b>: la 1ª vez te pide elegir la carpeta del computador con los PDF de las facturas. Luego, con solo pulsar el ⚡, busca el PDF de cada factura que aún no tiene su <b>FEV</b>, lo sube a Drive y lo marca; las que no encuentra las deja en blanco. <b>📁 Carpeta</b> = cambiar de carpeta.</div>
-        <div class="btn-row" style="margin:10px 0 2px">
+        <div id="busqModoBasico" class="hint" style="display:none;margin:8px 0 2px;border-left:3px solid #48a0d5;padding-left:8px">🔒 <b>Modo básico:</b> puedes <b>buscar</b>, <b>renombrar</b> y <b>continuar cargando</b>. Las demás acciones (crear cuentas, Excel, adjuntar facturas, eliminar carpetas) solo las hace el <b>maestro</b>.</div>
+        <div class="hint" id="hintBusq1" style="margin:8px 0 2px"><b>Enter</b> = trae justo esa carpeta. <b>✏️ Renombrar</b> cambia el nombre en la app y en Google Drive. <b>Cambio masivo (Excel)</b>: columna A = nombre ACTUAL, columna B = nombre NUEVO.</div>
+        <div class="hint" id="hintBusq2" style="margin:2px 0 2px"><b>⚡ Adjuntar facturas en lote</b>: la 1ª vez te pide elegir la carpeta del computador con los PDF de las facturas. Luego, con solo pulsar el ⚡, busca el PDF de cada factura que aún no tiene su <b>FEV</b>, lo sube a Drive y lo marca; las que no encuentra las deja en blanco. <b>📁 Carpeta</b> = cambiar de carpeta.</div>
+        <div class="btn-row" id="rowCCAcciones" style="margin:10px 0 2px">
           <button class="btn btn-green" id="btnCCDesdeSel">🧾 Crear cuenta de cobro (seleccionados)</button>
           <button class="btn btn-ghost" id="btnPlantillaCC">⬇️ Plantilla cuenta de cobro (1 columna)</button>
-          <label class="btn btn-ghost" style="cursor:pointer;margin:0">📄 Cuenta de cobro por Excel<input type="file" id="ccExcel" accept=".xlsx,.xls" style="display:none"></label>
+          <label class="btn btn-ghost" id="lblCCExcel" style="cursor:pointer;margin:0">📄 Cuenta de cobro por Excel<input type="file" id="ccExcel" accept=".xlsx,.xls" style="display:none"></label>
           <span class="badge" id="selCount">0 seleccionados</span>
         </div>
-        <div class="hint" style="margin:2px 0 2px">Marca las casillas de la columna ☑️ para elegir varias carpetas y crear <b>una</b> cuenta de cobro con todas. La plantilla es una sola columna llamada <b>LOTE</b>.</div>
+        <div class="hint" id="hintBusq3" style="margin:2px 0 2px">Marca las casillas de la columna ☑️ para elegir varias carpetas y crear <b>una</b> cuenta de cobro con todas. La plantilla es una sola columna llamada <b>LOTE</b>.</div>
         </div>
         <div id="tablaBusqueda"></div>
       </div>
@@ -402,38 +407,15 @@ tr:hover td{background:var(--panel2);}
         </details>
       </div>
     </section>
-    </section>
 
     <!-- ================= CONFIGURACIONES ================= -->
     <section class="view" id="view-configuraciones">
-      <div class="card-box">
-        <div class="sec-title">Crear usuario</div>
-        <div class="grid-cfg" style="grid-template-columns:1fr 1fr">
-          <div class="field"><label>Nombre de usuario</label><input id="newUser" autocomplete="off" placeholder="Ej: MROJAS"></div>
-          <div class="field"><label>Contraseña</label><input id="newPass" placeholder="Contraseña"></div>
-        </div>
-        <div class="field" style="margin-top:14px">
-          <label>Permisos (tarjetas que podrá ver este usuario)</label>
-          <div class="perm-row">
-            <label class="perm-chk"><input type="checkbox" value="documentos" checked> Documentos</label>
-            <label class="perm-chk"><input type="checkbox" value="busqueda"> Búsqueda</label>
-            <label class="perm-chk"><input type="checkbox" value="cuentas"> Cuentas de cobro</label>
-            <label class="perm-chk"><input type="checkbox" value="ips"> IPS</label>
-            <label class="perm-chk"><input type="checkbox" value="configuraciones"> Configuraciones</label>
-          </div>
-        </div>
-        <div class="btn-row"><button class="btn btn-cyan" id="btnAddUser">➕ Crear usuario</button></div>
+      <div class="cfg-head">
+        <div class="ci">⚙️</div>
+        <div><div class="ct">Configuraciones</div><div class="cs">IPS · Usuarios · Permisos</div></div>
       </div>
       <div class="card-box">
-        <div class="sec-title">Usuarios y permisos</div>
-        <div id="tablaUsuarios"></div>
-      </div>
-    </section>
-
-    <!-- ================= IPS ================= -->
-    <section class="view" id="view-ips">
-      <div class="card-box">
-        <div class="sec-title">🏥 Registrar IPS</div>
+        <div class="sec-title" style="display:flex;align-items:center;gap:10px"><span class="cfg-ico"><i class="fas fa-hospital"></i></span> IPS · Datos de la clínica</div>
         <div class="ips-note"><i class="fas fa-circle-info"></i><div>Aquí registras la <b>identidad de la IPS</b> (NIT, nombre y datos de contacto). El <b>NIT</b> y el <b>bloque de separación</b> que definas aquí son los que usa todo el sistema para nombrar los archivos; por eso en <b>Documentos</b> quedan visibles pero <b>bloqueados</b>, para evitar errores de renombración.</div></div>
         <div class="grid-cfg" style="grid-template-columns:1fr 1fr;margin-top:14px">
           <div class="field"><label><i class="fas fa-hospital"></i> Nombre de la IPS</label><input id="ipsNombre" autocomplete="off" placeholder="Ej: Hospital de Granada – Admisiones"></div>
@@ -455,7 +437,34 @@ tr:hover td{background:var(--panel2);}
         <div class="sec-title">IPS registradas</div>
         <div class="ips-grid" id="ipsGrid"></div>
       </div>
+      <div class="card-box">
+        <div class="sec-title">Crear usuario</div>
+        <div class="grid-cfg" style="grid-template-columns:1fr 1fr">
+          <div class="field"><label>Nombre de usuario</label><input id="newUser" autocomplete="off" placeholder="Ej: MROJAS"></div>
+          <div class="field"><label>Contraseña</label><input id="newPass" placeholder="Contraseña"></div>
+        </div>
+        <div class="field" style="margin-top:14px">
+          <label>Permisos (tarjetas que podrá ver este usuario)</label>
+          <div class="perm-row">
+            <label class="perm-chk"><input type="checkbox" value="documentos" checked> Documentos</label>
+            <label class="perm-chk"><input type="checkbox" value="busqueda"> Búsqueda</label>
+            <label class="perm-chk"><input type="checkbox" value="cuentas"> Cuentas de cobro</label>
+            <label class="perm-chk"><input type="checkbox" value="configuraciones"> Configuraciones</label>
+          </div>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Acciones dentro de Búsqueda</label>
+          <label class="perm-chk" style="border-color:#2a4a5e"><input type="checkbox" id="newBusqCompleta"> 🔓 Búsqueda completa (crear cuentas de cobro, Excel y adjuntar facturas)</label>
+          <div class="hint" style="margin:6px 0 0">Si lo dejas <b>sin marcar</b>, ese usuario solo podrá <b>buscar</b>, <b>renombrar</b> y <b>continuar cargando</b>. <b>Eliminar una carpeta completa</b> queda reservado siempre al <b>maestro</b>.</div>
+        </div>
+        <div class="btn-row"><button class="btn btn-cyan" id="btnAddUser">➕ Crear usuario</button></div>
+      </div>
+      <div class="card-box">
+        <div class="sec-title">Usuarios y permisos</div>
+        <div id="tablaUsuarios"></div>
+      </div>
     </section>
+
   </main>
 </div>
 </div><!-- /#app -->
@@ -494,7 +503,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v3.3 · ☁️ DRIVE COMPARTIDO</div>
+<div class="verbadge">ARCHIVO DIGITAL v3.4 · ☁️ DRIVE COMPARTIDO</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -579,8 +588,7 @@ $$('.side-item').forEach(it=>it.addEventListener('click',()=>{
   $('#view-'+it.dataset.view).classList.add('active');
   if(it.dataset.view==='busqueda'){ renderBusqueda(); if(driveOn) sincronizarBusquedaConDrive(); }
   if(it.dataset.view==='cuentas') renderCuentas();
-  if(it.dataset.view==='ips') renderIps();
-  if(it.dataset.view==='configuraciones') renderUsuarios();
+  if(it.dataset.view==='configuraciones'){ renderUsuarios(); renderIps(); }
 }));
 
 /* ---------- CONSTRUIR 6 TARJETAS ---------- */
@@ -923,10 +931,15 @@ function renderBusqueda(){
         ? `<button class="btn btn-green" style="padding:6px 12px" onclick="continuarLote('${le}','${ne}')">▶️ Continuar cargando</button>`
         : '<span style="color:#7fe39a;font-size:12px;font-weight:600">✅ Completo</span>';
     const btnRen=`<button class="btn btn-cyan" style="padding:6px 12px;margin-right:6px" onclick="renombrarLoteUI('${le}')">✏️ Renombrar</button>`;
-    const btnDel=`<button class="btn btn-ghost" style="padding:6px 12px;margin-left:6px" onclick="eliminarLoteUI('${le}')">🗑️ Eliminar</button>`;
-    return `<tr><td style="text-align:center"><input type="checkbox" class="chk-lote" value="${le}" style="width:16px;height:16px;accent-color:var(--cyan)"></td><td><b>${l.lote}</b></td><td>${l.nit}</td><td>${pill}</td><td>${chips}</td><td>${l.fecha}</td><td style="white-space:nowrap">${btnRen}${btn}${btnDel}</td></tr>`;
+    const full=(typeof puedeBusqCompleta==='function')&&puedeBusqCompleta();
+    const puedeDel=(typeof puedeBorrarCarpetas==='function')&&puedeBorrarCarpetas();
+    const btnDel=puedeDel?`<button class="btn btn-ghost" style="padding:6px 12px;margin-left:6px" onclick="eliminarLoteUI('${le}')">🗑️ Eliminar</button>`:'';
+    const chkCell=full?`<td style="text-align:center"><input type="checkbox" class="chk-lote" value="${le}" style="width:16px;height:16px;accent-color:var(--cyan)"></td>`:'<td></td>';
+    return `<tr>${chkCell}<td><b>${l.lote}</b></td><td>${l.nit}</td><td>${pill}</td><td>${chips}</td><td>${l.fecha}</td><td style="white-space:nowrap">${btnRen}${btn}${btnDel}</td></tr>`;
   }).join('');
-  cont.innerHTML=nota+`<table><thead><tr><th style="text-align:center"><input type="checkbox" id="chkAll" style="width:16px;height:16px;accent-color:var(--cyan)"></th><th>Lote</th><th>NIT</th><th>Estado</th><th>Documentos (✓ cargado / ⏳ pendiente)</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const _full=(typeof puedeBusqCompleta==='function')&&puedeBusqCompleta();
+  const _thChk=_full?'<th style="text-align:center"><input type="checkbox" id="chkAll" style="width:16px;height:16px;accent-color:var(--cyan)"></th>':'<th></th>';
+  cont.innerHTML=nota+`<table><thead><tr>${_thChk}<th>Lote</th><th>NIT</th><th>Estado</th><th>Documentos (✓ cargado / ⏳ pendiente)</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>`;
   const chkAll=$('#chkAll');
   if(chkAll) chkAll.addEventListener('change',()=>{document.querySelectorAll('#tablaBusqueda .chk-lote').forEach(c=>c.checked=chkAll.checked);updateSelCount();});
   document.querySelectorAll('#tablaBusqueda .chk-lote').forEach(c=>c.addEventListener('change',updateSelCount));
@@ -945,6 +958,7 @@ window.continuarLote=function(lote,nit){
 
 /* ---------- ELIMINAR CARPETA (lote) ---------- */
 window.eliminarLoteUI=async function(lote){
+  if(!puedeBorrarCarpetas()){ toast('🔒 Eliminar carpetas completas solo lo puede hacer el usuario maestro.'); return; }
   const ok=await uiConfirm({
     title:'🗑️ Eliminar carpeta',
     msg:'¿Seguro que quieres eliminar la carpeta del lote <b>"'+lote+'"</b>?<br><br>Se enviará a la <b>papelera de Google Drive</b> con todos sus PDF (se puede recuperar desde la papelera de Drive) y se quitará de la lista.',
@@ -988,7 +1002,7 @@ async function crearCCDesde(lotes){
   renderCuentas();
   toast('✅ Cuenta de cobro "'+n+'" creada con '+lotes.length+' lote(s).');
 }
-if($('#btnCCDesdeSel')) $('#btnCCDesdeSel').addEventListener('click',()=>crearCCDesde(lotesSeleccionados()));
+if($('#btnCCDesdeSel')) $('#btnCCDesdeSel').addEventListener('click',()=>{ if(!exigirBusqCompleta('crear cuentas de cobro')) return; crearCCDesde(lotesSeleccionados()); });
 if($('#btnPlantillaCC')) $('#btnPlantillaCC').addEventListener('click',e=>{
   e.preventDefault();
   if(typeof XLSX==='undefined'){toast('❌ El lector de Excel aún carga, intenta en 5 segundos.');return;}
@@ -1074,6 +1088,7 @@ function wireRenombreMasivo(){
   if(inp) inp.addEventListener('change',async function(){
     const file=this.files&&this.files[0]; this.value='';
     if(!file) return;
+    if(!exigirBusqCompleta('hacer cambios masivos por Excel')) return;
     if(!driveOn){toast('⚠️ Conéctate a Google Drive: el cambio masivo también renombra en Drive.');return;}
     if(typeof XLSX==='undefined'){toast('❌ El lector de Excel aún carga, intenta en 5 segundos.');return;}
     try{
@@ -1154,6 +1169,7 @@ function matchLote(fileName,lote){
 }
 let _adjEnCurso=false;
 async function adjuntarFacturasEnLote(elegirCarpeta){
+  if(!exigirBusqCompleta('adjuntar facturas en lote')) return;
   if(_adjEnCurso){ toast('⏳ Espera, aún estoy adjuntando...'); return; }
   if(!driveOn){ toast('⚠️ Conéctate a Google Drive primero: el ⚡ guarda las facturas en Drive.'); return; }
   let dir;
@@ -1550,7 +1566,7 @@ async function valDescargarZip(){
 
 /* ================= SEGURIDAD / USUARIOS ================= */
 const LS_USERS='archivo_digital_usuarios';
-const MASTER={user:'JDEAGUAS',pass:'123',role:'MAESTRO',perms:['documentos','busqueda','cuentas','ips','configuraciones'],master:true};
+const MASTER={user:'JDEAGUAS',pass:'123',role:'MAESTRO',perms:['documentos','busqueda','cuentas','configuraciones'],master:true,busqCompleta:true};
 let currentUser=null;
 const SECCIONES={documentos:'Documentos',busqueda:'Búsqueda',cuentas:'Cuentas de cobro',ips:'IPS',configuraciones:'Configuraciones'};
 
@@ -1564,7 +1580,7 @@ function doLogin(){
   else{const m=getUsers().find(x=>x.user.toUpperCase()===u.toUpperCase() && x.pass===p);if(m)found={...m,master:false};}
   if(!found){$('#loginErr').textContent='Usuario o contraseña incorrectos.';return;}
   currentUser=found;
-  localStorage.setItem('archivo_digital_sesion',JSON.stringify({user:found.user,perms:found.perms,master:!!found.master}));
+  localStorage.setItem('archivo_digital_sesion',JSON.stringify({user:found.user,perms:found.perms,master:!!found.master,busqCompleta:!!found.busqCompleta}));
   $('#loginErr').textContent='';$('#loginPass').value='';
   $('#loginScreen').style.display='none';
   $('#app').style.display='block';
@@ -1583,6 +1599,8 @@ function aplicarSesion(){
     const perm=it.dataset.perm;
     it.classList.toggle('locked', !currentUser.perms.includes(perm));
   });
+  // permisos finos dentro de Búsqueda
+  if(typeof aplicarPermisosBusqueda==='function') aplicarPermisosBusqueda();
   // seleccionar la primera tarjeta permitida
   const first=[...$$('.side-item')].find(it=>!it.classList.contains('locked'));
   if(first) first.click();
@@ -1612,25 +1630,53 @@ $('#btnLogout').addEventListener('click',()=>{
 });
 
 /* ---------- CREAR USUARIO / PERMISOS ---------- */
+/* ---- Permisos finos de Búsqueda ---- */
+function puedeBusqCompleta(){ return !!(currentUser && (currentUser.master || currentUser.busqCompleta)); }
+function puedeBorrarCarpetas(){ return !!(currentUser && currentUser.master); }
+function exigirBusqCompleta(accion){
+  if(puedeBusqCompleta()) return true;
+  toast('🔒 Tu usuario no tiene permiso para '+accion+'. Solo el maestro puede hacerlo.');
+  return false;
+}
+function aplicarPermisosBusqueda(){
+  const full=puedeBusqCompleta();
+  const ocultar=['lblRenombreExcel','btnPlantillaExcel','btnAdjuntarFEV','btnElegirCarpetaFEV','rowCCAcciones','hintBusq1','hintBusq2','hintBusq3'];
+  ocultar.forEach(id=>{ const el=$('#'+id); if(el) el.style.display = full ? '' : 'none'; });
+  const av=$('#busqModoBasico'); if(av) av.style.display = full ? 'none' : '';
+  if(typeof renderBusqueda==='function'){ try{ renderBusqueda(); }catch(e){} }
+}
+window.toggleBusq=function(i){
+  const users=getUsers(); if(!users[i])return;
+  users[i].busqCompleta=!users[i].busqCompleta; saveUsers(users); renderUsuarios();
+  toast(users[i].busqCompleta?('🔓 '+users[i].user+': Búsqueda completa'):('🔒 '+users[i].user+': solo buscar, renombrar y cargar'));
+  if(driveOn){ try{subirUsuariosADrive();}catch(e){} }
+};
+
 $('#btnAddUser').addEventListener('click',()=>{
   const u=$('#newUser').value.trim(), p=$('#newPass').value.trim();
   if(!u||!p){toast('⚠️ Escribe usuario y contraseña.');return;}
   if(u.toUpperCase()===MASTER.user){toast('⚠️ Ese nombre está reservado para el usuario maestro.');return;}
-  const perms=[...document.querySelectorAll('#view-configuraciones .perm-chk input:checked')].map(c=>c.value);
+  const perms=[...document.querySelectorAll('#view-configuraciones .perm-row .perm-chk input:checked')].map(c=>c.value);
   if(!perms.length){toast('⚠️ Marca al menos una tarjeta de permiso.');return;}
   const users=getUsers();
   if(users.find(x=>x.user.toUpperCase()===u.toUpperCase())){toast('⚠️ Ya existe un usuario con ese nombre.');return;}
-  users.push({user:u,pass:p,perms});saveUsers(users);
+  const busqCompleta=!!($('#newBusqCompleta')&&$('#newBusqCompleta').checked);
+  users.push({user:u,pass:p,perms,busqCompleta:busqCompleta});saveUsers(users);
   $('#newUser').value='';$('#newPass').value='';
-  renderUsuarios();toast('✅ Usuario "'+u+'" creado.');
+  if($('#newBusqCompleta'))$('#newBusqCompleta').checked=false;
+  renderUsuarios();toast('✅ Usuario "'+u+'" creado'+(busqCompleta?'.':'. Solo buscar, renombrar y cargar.'));
   if(driveOn){ subirUsuariosADrive().then(ok=>{ if(ok) toast('☁️ Usuario guardado tambien en la nube (sirve en otros equipos).'); }); }
 });
 
 function renderUsuarios(){
   const cont=$('#tablaUsuarios');const users=getUsers();
-  let masterRow=`<tr><td><b>${MASTER.user}</b></td><td><span class="pill full">MAESTRO</span></td><td>Todas las tarjetas</td><td><span style="color:var(--muted)">protegido</span></td></tr>`;
-  let rows=users.map((x,i)=>`<tr><td><b>${x.user}</b></td><td><span class="pill part">USUARIO</span></td><td>${x.perms.map(p=>SECCIONES[p]).join(', ')}</td><td><button class="btn btn-ghost" style="padding:4px 10px" onclick="delUser(${i})">🗑️</button></td></tr>`).join('');
-  cont.innerHTML=`<table><thead><tr><th>Usuario</th><th>Rol</th><th>Permisos</th><th></th></tr></thead><tbody>${masterRow}${rows}</tbody></table>`;
+  let masterRow=`<tr><td><b>${MASTER.user}</b></td><td><span class="pill full">MAESTRO</span></td><td>Todas</td><td><span class="pill full">🔓 Completa</span></td><td><span style="color:var(--muted)">protegido</span></td></tr>`;
+  let rows=users.map((x,i)=>{
+    const perms=(x.perms||[]).map(p=>SECCIONES[p]||p).join(', ')||'—';
+    const bq=x.busqCompleta?'<span class="pill full">🔓 Completa</span>':'<span class="pill part">🔒 Básica</span>';
+    return `<tr><td><b>${x.user}</b></td><td><span class="pill part">USUARIO</span></td><td>${perms}</td><td><button class="btn btn-ghost" style="padding:4px 9px;font-size:11px" onclick="toggleBusq(${i})" title="Cambiar qué puede hacer en Búsqueda">${bq}</button></td><td style="white-space:nowrap"><button class="btn btn-ghost" style="padding:4px 10px" onclick="delUser(${i})">🗑️</button></td></tr>`;
+  }).join('');
+  cont.innerHTML=`<table><thead><tr><th>Usuario</th><th>Rol</th><th>Permisos</th><th>Búsqueda</th><th></th></tr></thead><tbody>${masterRow}${rows}</tbody></table>`;
 }
 window.delUser=i=>{const u=getUsers();u.splice(i,1);saveUsers(u);renderUsuarios();toast('🗑️ Usuario eliminado.'); if(driveOn){ subirUsuariosADrive(); }};
 
@@ -1681,7 +1727,7 @@ function ipsEditar(id){
   $('#ipsEditNote').innerHTML='<div class="lock-note"><i class="fas fa-lock"></i> El NIT no se puede cambiar al editar, para no dañar la nomenclatura de los archivos ya guardados. Si necesitas otro NIT, registra una IPS nueva.</div>';
   $('#btnIpsGuardar').innerHTML='💾 Guardar cambios';
   $('#btnIpsCancelar').style.display='';
-  const sec=$('#view-ips'); if(sec)sec.scrollIntoView({behavior:'smooth',block:'start'});
+  const sec=$('#ipsEditNote'); if(sec)sec.scrollIntoView({behavior:'smooth',block:'center'});
 }
 window.ipsEditar=ipsEditar;
 window.ipsActivar=function(id){
@@ -2260,12 +2306,16 @@ syncNitFromIps();
     const s=JSON.parse(localStorage.getItem('archivo_digital_sesion')||'null');
     if(s && s.user){
       let master=!!s.master || String(s.user).toUpperCase()===MASTER.user;
-      let perms;
-      if(master){ perms=MASTER.perms.slice(); } /* el maestro SIEMPRE tiene todas las secciones (incl. IPS) */
-      else { const m=getUsers().find(x=>x.user.toUpperCase()===String(s.user).toUpperCase()); perms=(m&&m.perms)?m.perms.slice():(s.perms||['documentos','busqueda','cuentas','ips','configuraciones']); }
-      currentUser={user:s.user,perms:perms,master:master};
+      let perms,busqCompleta;
+      if(master){ perms=MASTER.perms.slice(); busqCompleta=true; } /* el maestro SIEMPRE tiene todo */
+      else {
+        const m=getUsers().find(x=>x.user.toUpperCase()===String(s.user).toUpperCase());
+        perms=(m&&m.perms)?m.perms.slice():(s.perms||['documentos','busqueda','cuentas','configuraciones']);
+        busqCompleta=!!(m?m.busqCompleta:s.busqCompleta);
+      }
+      currentUser={user:s.user,perms:perms,master:master,busqCompleta:busqCompleta};
       /* re-guardamos la sesión ya rehidratada, para que no vuelva a quedar desactualizada */
-      localStorage.setItem('archivo_digital_sesion',JSON.stringify({user:currentUser.user,perms:currentUser.perms,master:currentUser.master}));
+      localStorage.setItem('archivo_digital_sesion',JSON.stringify({user:currentUser.user,perms:currentUser.perms,master:currentUser.master,busqCompleta:!!currentUser.busqCompleta}));
       $('#loginScreen').style.display='none';
       $('#app').style.display='block';
       aplicarSesion();
