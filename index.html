@@ -164,6 +164,13 @@ tr:hover td{background:var(--panel2);}
 .val-close{background:none;border:none;color:#9fb3c8;font-size:26px;line-height:1;cursor:pointer;padding:0 4px;}
 .val-close:hover{color:#fff;}
 .val-body{padding:18px 22px 22px;}
+.val-eps{background:linear-gradient(120deg,rgba(34,211,238,.10),rgba(72,160,213,.04));border:1px solid rgba(34,211,238,.28);border-radius:13px;padding:12px 14px;margin-bottom:14px;}
+.val-eps .ve-t{font-size:12.5px;font-weight:800;color:#dff2fb;letter-spacing:.3px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:7px;}
+.val-eps .ve-t i{color:var(--cyan2);}
+.val-eps select{width:100%;background:#0b141d;border:1px solid #24323f;color:#eaf4fb;border-radius:9px;padding:9px 11px;font-size:13px;font-weight:600;}
+.val-eps select:focus{outline:none;border-color:var(--cyan2);}
+.val-eps .ve-h{margin-top:8px;font-size:11px;line-height:1.55;color:#9fb6c8;}
+.val-eps .ve-h b{color:#cfe3f2;}
 .val-drop{border:2px dashed var(--line);border-radius:14px;padding:22px 16px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s;display:flex;flex-direction:column;align-items:center;gap:6px;}
 .val-drop:hover,.val-drop.over{border-color:var(--cyan2);background:rgba(34,211,238,.07);color:#cfeaf7;}
 .val-drop i{font-size:30px;color:var(--cyan2);}
@@ -261,6 +268,11 @@ tr:hover td{background:var(--panel2);}
       <button class="val-close" id="valClose" type="button" title="Cerrar">&times;</button>
     </div>
     <div class="val-body">
+      <div class="val-eps">
+        <div class="ve-t"><i class="fas fa-building-shield"></i> ¿A qué EPS se va a radicar?</div>
+        <select id="valEps"></select>
+        <div class="ve-h" id="valEpsHint"></div>
+      </div>
       <div class="val-drop" id="valDrop">
         <i class="fas fa-cloud-arrow-up"></i>
         <b>Adjuntar JSON y XML</b>
@@ -503,7 +515,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v3.5 · 🐉 CONTROL DE SOPORTES</div>
+<div class="verbadge">ARCHIVO DIGITAL v3.6 · 🐉 RADICACIÓN POR EPS</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -1460,6 +1472,34 @@ function valExtraerXML(a){
   return r;
 }
 /* VAL_ANCHOR */
+/* ================= PLANTILLAS DE RADICACIÓN POR EPS =================
+   Cada EPS pide los soportes en carpetas distintas. Aquí se define
+   qué carpetas genera el ZIP al descargar. */
+const EPS_PLANTILLAS={
+  OTRAS:{
+    nombre:'OTRAS EPS',
+    carpetas:'XML + SOPORTES',
+    hint:'Estructura normal: <b>XML</b> (una subcarpeta por factura con su .json y .xml) y <b>SOPORTES</b> (una subcarpeta por factura con sus PDF).'
+  },
+  MUTUALSER:{
+    nombre:'MUTUAL SER',
+    carpetas:'MINISTERIO + FE + JSON + SOPORTES',
+    hint:'Estructura Mutual Ser: <b>MINISTERIO</b> (carpeta por factura con .json y .xml) · <b>FE</b> (un ZIP por factura con el PDF de la factura + el XML) · <b>JSON</b> (todos los .json juntos) · <b>SOPORTES</b> (un ZIP por factura con sus soportes, <b>sin</b> la FEV).'
+  }
+};
+function epsActual(){ const el=$('#valEps'); return (el&&el.value)||'OTRAS'; }
+function epsConfig(){ return EPS_PLANTILLAS[epsActual()]||EPS_PLANTILLAS.OTRAS; }
+function pintarEps(){
+  const sel=$('#valEps'); if(!sel) return;
+  if(!sel.options.length){
+    Object.keys(EPS_PLANTILLAS).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=EPS_PLANTILLAS[k].nombre+' — '+EPS_PLANTILLAS[k].carpetas; sel.appendChild(o); });
+    let g='OTRAS'; try{ g=localStorage.getItem('archivo_digital_eps_sel')||'OTRAS'; }catch(e){}
+    if(EPS_PLANTILLAS[g]) sel.value=g;
+  }
+  const c=epsConfig();
+  const h=$('#valEpsHint'); if(h) h.innerHTML=c.hint;
+  const b=$('#valBtnZip'); if(b) b.innerHTML='<i class="fas fa-file-archive"></i> Descargar ZIP ('+c.carpetas+')';
+}
 function valAbrir(cuenta){
   VAL={cuenta:cuenta,archivos:[],porFactura:{},fase1ok:false,fase2ok:false};
   const lotes=ccLotesDe(cuenta); const nf=lotes.length;
@@ -1467,6 +1507,7 @@ function valAbrir(cuenta){
   $('#valFiles').innerHTML=''; $('#valF1').innerHTML=''; $('#valF2').innerHTML='';
   $('#valSec1').style.display='none'; $('#valSec2').style.display='none';
   $('#valBtnZip').disabled=true; $('#valEstado').textContent='Esperando archivos…';
+  if(typeof pintarEps==='function') pintarEps();
   $('#valOv').classList.add('show');
 }
 function valCerrar(){ const ov=$('#valOv'); if(ov)ov.classList.remove('show'); VAL=null; }
@@ -1560,40 +1601,103 @@ function valFase2(porFactura){
   });
   return okTotal;
 }
+/* Baja de Drive los PDF de la carpeta de una factura (o del lote, por posición) */
+async function valTraerSoportes(num,lote,root){
+  const res={files:[],encontrada:false,error:null};
+  if(!root) return res;
+  try{
+    let folderId=await findFolder(String(num),root);
+    if(!folderId && lote && String(lote)!==String(num)) folderId=await findFolder(String(lote),root);
+    if(!folderId) return res;
+    res.encontrada=true;
+    const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name,mimeType)&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true');
+    const j=await r.json();
+    for(const f of (j.files||[])){
+      if(f.mimeType&&f.mimeType.indexOf('folder')>=0) continue;
+      try{ const bytes=await descargarPdf(f.id); res.files.push({name:f.name,bytes:bytes}); }catch(e){}
+    }
+  }catch(e){ res.error=e.message; }
+  return res;
+}
+/* ====== MUTUAL SER: MINISTERIO / FE / JSON / SOPORTES ====== */
+async function valZipMutualSer(zip,facturas,lotes,nit,root,est){
+  const fMin=zip.folder('MINISTERIO'), fFe=zip.folder('FE'), fJson=zip.folder('JSON'), fSop=zip.folder('SOPORTES');
+  let nXml=0, nPdf=0, sinFev=0, sinSop=0, sinCarpeta=0, fallos=0;
+  for(let i=0;i<facturas.length;i++){
+    const n=facturas[i];
+    const lote=(lotes.length===facturas.length)?lotes[i]:(lotes[i]||n);
+    est.innerHTML='<span style="color:#9fd3f0">Preparando factura '+(i+1)+' de '+facturas.length+' ('+valEsc(n)+')…</span>';
+    await new Promise(r=>setTimeout(r,0));
+    const g=VAL.porFactura[n];
+    const base='FEV_'+nit+'_'+n;
+    /* 1) MINISTERIO: una carpeta por factura con el .json y el .xml */
+    const dm=fMin.folder(String(n)); dm.file(base+'.json',g.json.texto); dm.file(base+'.xml',g.xml.texto); nXml++;
+    /* 2) JSON: todos los .json juntos */
+    fJson.file(base+'.json',g.json.texto);
+    /* 3) traer soportes de Drive */
+    const sop=await valTraerSoportes(n,lote,root);
+    if(!sop.encontrada){ sinCarpeta++; }
+    const fev=sop.files.find(f=>/^FEV[_\-. ]/i.test(f.name))||null;
+    const otros=sop.files.filter(f=>!/^FEV[_\-. ]/i.test(f.name));
+    /* 4) FE: un ZIP por factura con el PDF de la factura + el XML */
+    const zf=new JSZip();
+    zf.file(base+'.xml',g.xml.texto);
+    if(fev){ zf.file(base+'.pdf',fev.bytes); nPdf++; } else { sinFev++; }
+    fFe.file(nit+'_'+n+'.zip', await zf.generateAsync({type:'uint8array'}));
+    if(fev){ fFe.file(base+'.pdf',fev.bytes); fFe.file(base+'.xml',g.xml.texto); }
+    /* 5) SOPORTES: un ZIP por factura con los soportes (sin la FEV) */
+    const zs=new JSZip();
+    otros.forEach(f=>{ zs.file(f.name,f.bytes); nPdf++; });
+    if(!otros.length) sinSop++;
+    fSop.file(nit+'_'+n+'.zip', await zs.generateAsync({type:'uint8array'}));
+  }
+  return {nXml:nXml,nPdf:nPdf,sinFev:sinFev,sinSop:sinSop,sinCarpeta:sinCarpeta,fallos:fallos};
+}
 async function valDescargarZip(){
   if(!VAL||!VAL.fase1ok||!VAL.fase2ok){toast('⚠️ Aún hay validaciones pendientes.');return;}
   if(typeof JSZip==='undefined'){toast('❌ El compresor aún carga, intenta en 5 segundos.');return;}
   const cuenta=VAL.cuenta; const nit=($('#cfgNit').value||'').trim()||'NIT';
   const lotes=ccLotesDe(cuenta).map(valNormNum).filter(Boolean);
-  /* Empaquetamos por las facturas REALES detectadas (par .json + .xml), no por el n° de lote */
   const facturas=Object.keys(VAL.porFactura).filter(n=>VAL.porFactura[n].json&&VAL.porFactura[n].xml);
+  const eps=epsActual();
   const bz=$('#valBtnZip'); const est=$('#valEstado'); const t0=bz.innerHTML;
   bz.disabled=true; bz.innerHTML='<i class="fas fa-spinner fa-spin"></i> Preparando…';
-  const zip=new JSZip(); const fXML=zip.folder('XML'); const fSOP=zip.folder('SOPORTES');
-  let nXml=0,nPdf=0,fallos=0; let root=null;
-  if(driveOn){ try{root=await ensureFevRoot();}catch(e){root=null;} }
+  const zip=new JSZip();
+  let root=null; if(driveOn){ try{root=await ensureFevRoot();}catch(e){root=null;} }
+  let nXml=0,nPdf=0,fallos=0;
   try{
-    for(let i=0;i<facturas.length;i++){
-      const n=facturas[i];
-      /* El n° de factura (p.ej. HLNG502061) suele diferir del n° de lote (p.ej. 426899).
-         Los PDF de soporte viven en Drive bajo la carpeta del LOTE, así que mapeamos por posición. */
-      const lote=(lotes.length===facturas.length)?lotes[i]:(lotes[i]||n);
-      est.innerHTML='<span style="color:#9fd3f0">Preparando factura '+(i+1)+' de '+facturas.length+' ('+valEsc(n)+')…</span>';
-      await new Promise(r=>setTimeout(r,0));
-      const g=VAL.porFactura[n];
-      const base='FEV_'+nit+'_'+n; const sx=fXML.folder(n); sx.file(base+'.json',g.json.texto); sx.file(base+'.xml',g.xml.texto); nXml++;
-      const ss=fSOP.folder(n);
-      if(root){ try{ let folderId=await findFolder(String(n),root); if(!folderId&&lote&&lote!==n)folderId=await findFolder(String(lote),root);
-        if(folderId){ const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name,mimeType)&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true'); const j=await r.json();
-          for(const f of (j.files||[])){ if(f.mimeType&&f.mimeType.indexOf('folder')>=0)continue; try{const bytes=await descargarPdf(f.id); ss.file(f.name,bytes); nPdf++;}catch(e){fallos++;} }
-        } else { ss.file('_SIN_CARPETA_EN_DRIVE.txt','No se encontró en Google Drive la carpeta de la factura "'+n+'" ni la del lote "'+lote+'".'); }
-      }catch(e){fallos++;} }
-      else { ss.file('_SIN_DRIVE.txt','Conéctate a Google Drive para incluir los PDF de soporte de esta factura.'); }
+    if(eps==='MUTUALSER'){
+      const r=await valZipMutualSer(zip,facturas,lotes,nit,root,est);
+      nXml=r.nXml; nPdf=r.nPdf; fallos=r.fallos;
+      if(r.sinCarpeta) toast('⚠️ '+r.sinCarpeta+' factura(s) sin carpeta en Drive: revisa que estén subidos.');
+      if(r.sinFev) setTimeout(()=>toast('⚠️ '+r.sinFev+' factura(s) sin PDF FEV: el ZIP de FE quedó solo con el XML.'),1600);
+      if(r.sinSop) setTimeout(()=>toast('⚠️ '+r.sinSop+' factura(s) sin soportes PDF en Drive.'),3000);
+    }else{
+      const fXML=zip.folder('XML'); const fSOP=zip.folder('SOPORTES');
+      for(let i=0;i<facturas.length;i++){
+        const n=facturas[i];
+        const lote=(lotes.length===facturas.length)?lotes[i]:(lotes[i]||n);
+        est.innerHTML='<span style="color:#9fd3f0">Preparando factura '+(i+1)+' de '+facturas.length+' ('+valEsc(n)+')…</span>';
+        await new Promise(r=>setTimeout(r,0));
+        const g=VAL.porFactura[n];
+        const base='FEV_'+nit+'_'+n; const sx=fXML.folder(n); sx.file(base+'.json',g.json.texto); sx.file(base+'.xml',g.xml.texto); nXml++;
+        const ss=fSOP.folder(n);
+        if(root){
+          try{
+            let folderId=await findFolder(String(n),root); if(!folderId&&lote&&lote!==n)folderId=await findFolder(String(lote),root);
+            if(folderId){
+              const r=await driveFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("trashed=false and '"+folderId+"' in parents")+'&fields=files(id,name,mimeType)&spaces=drive&includeItemsFromAllDrives=true&supportsAllDrives=true'); const j=await r.json();
+              for(const f of (j.files||[])){ if(f.mimeType&&f.mimeType.indexOf('folder')>=0)continue; try{const bytes=await descargarPdf(f.id); ss.file(f.name,bytes); nPdf++;}catch(e){fallos++;} }
+            } else { ss.file('_SIN_CARPETA_EN_DRIVE.txt','No se encontró en Google Drive la carpeta de la factura "'+n+'" ni la del lote "'+lote+'".'); }
+          }catch(e){fallos++;}
+        }
+        else { ss.file('_SIN_DRIVE.txt','Conéctate a Google Drive para incluir los PDF de soporte de esta factura.'); }
+      }
     }
     est.innerHTML='<span style="color:#9fd3f0">Generando ZIP… unos segundos.</span>';
     const blob=await zip.generateAsync({type:'blob'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='CuentaCobro_'+String(cuenta.num).replace(/[^\w.-]/g,'_')+'_soportes.zip'; a.click();
-    toast('✅ ZIP listo: '+nXml+' factura(s) en XML, '+nPdf+' PDF en SOPORTES'+(fallos?(' · ⚠ '+fallos+' no bajaron de Drive'):'')+'.');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='CuentaCobro_'+String(cuenta.num).replace(/[^\w.-]/g,'_')+'_'+eps+'.zip'; a.click();
+    toast('✅ ZIP listo ('+(eps==='MUTUALSER'?'MUTUAL SER':'OTRAS EPS')+'): '+nXml+' factura(s), '+nPdf+' PDF'+(fallos?(' · ⚠ '+fallos+' no bajaron'):'')+'.');
     est.innerHTML='<span style="color:#7ee2a8">✔ Listo. Revisa tu carpeta de Descargas.</span>';
   }catch(err){ toast('❌ No se pudo generar el ZIP: '+(err.message||err)); est.innerHTML='<span style="color:#ffb4b4">Error al generar el ZIP.</span>'; }
   finally{ bz.disabled=false; bz.innerHTML=t0; }
@@ -1608,6 +1712,9 @@ async function valDescargarZip(){
     drop.addEventListener('drop',e=>{ e.preventDefault(); drop.classList.remove('over'); if(e.dataTransfer&&e.dataTransfer.files)valLeerArchivos(e.dataTransfer.files); });
   }
   const bz=$('#valBtnZip'); if(bz)bz.addEventListener('click',valDescargarZip);
+  const selEps=$('#valEps');
+  if(selEps) selEps.addEventListener('change',()=>{ try{localStorage.setItem('archivo_digital_eps_sel',selEps.value);}catch(e){} pintarEps(); });
+  try{ pintarEps(); }catch(e){}
   const cl=$('#valClose'); if(cl)cl.addEventListener('click',valCerrar);
   const ov=$('#valOv'); if(ov)ov.addEventListener('click',e=>{ if(e.target===ov)valCerrar(); });
 })();
