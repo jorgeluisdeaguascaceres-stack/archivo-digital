@@ -379,7 +379,7 @@ tr:hover td{background:var(--panel2);}
           <label class="btn btn-ghost" id="lblCCExcel" style="cursor:pointer;margin:0">📄 Cuenta de cobro por Excel<input type="file" id="ccExcel" accept=".xlsx,.xls" style="display:none"></label>
           <span class="badge" id="selCount">0 seleccionados</span>
         </div>
-        <div class="hint" id="hintBusq3" style="margin:2px 0 2px">Marca las casillas de la columna ☑️ para elegir varias carpetas y crear <b>una</b> cuenta de cobro con todas. La plantilla es una sola columna llamada <b>LOTE</b>.</div>
+        <div class="hint" id="hintBusq3" style="margin:2px 0 2px">Marca las casillas de la columna ☑️ para elegir varias carpetas y crear <b>una</b> cuenta de cobro con todas. La plantilla es una sola columna llamada <b>LOTE</b>. <b>Obligatorio:</b> cada lote debe tener <b>CRC, PDE, HAU, HEV y HAM</b>; si le falta alguno, no se crea la cuenta.</div>
         </div>
         <div id="tablaBusqueda"></div>
       </div>
@@ -503,7 +503,7 @@ tr:hover td{background:var(--panel2);}
   <iframe id="pdfFrame" title="PDF"></iframe>
 </div></div>
 <div class="toast" id="toast"></div>
-<div class="verbadge">ARCHIVO DIGITAL v3.4 · ☁️ DRIVE COMPARTIDO</div>
+<div class="verbadge">ARCHIVO DIGITAL v3.5 · 🐉 CONTROL DE SOPORTES</div>
 </body>
 <script>
 const { PDFDocument } = PDFLib;
@@ -849,6 +849,11 @@ $('#btnGuardarLote').addEventListener('click',async()=>{
       toast('✅ Lote '+lote+' descargado como ZIP ('+generados.length+' PDF).');
     }
     registrarLote(nit,lote,generados);
+    /* Aviso suave: si al lote le falta algún documento obligatorio, se le recuerda de una vez */
+    try{
+      const _fal=(typeof faltantesDeLote==='function')?faltantesDeLote(lote):[];
+      if(_fal.length) setTimeout(()=>toast('⚠️ Lote '+lote+': aún le falta '+_fal.join(', ')+' para poder crear la cuenta de cobro.'),1900);
+    }catch(e){}
   }catch(e){toast('❌ Error al guardar: '+e.message);}
   $('#btnGuardarLote').disabled=false;$('#btnGuardarLote').innerHTML='💾 Guardar lote ('+DOC_TYPES.length+' documentos)';
 });
@@ -927,6 +932,8 @@ function renderBusqueda(){
         ? `<span class="pill full" style="margin:2px">${t} ✓</span>`
         : `<span class="pill part" style="margin:2px;opacity:.55">${t} ⏳</span>`).join('');
     const le=String(l.lote).replace(/'/g,'');const ne=String(l.nit).replace(/'/g,'');
+    const _fal=(typeof faltantesDeLote==='function')?faltantesDeLote(l.lote):[];
+    const pillFalt=_fal.length?`<span class="pill" style="background:rgba(255,150,60,.14);color:#ffc48a;border:1px solid #8a5220;margin-left:6px" title="Documentos obligatorios que faltan para poder crear la cuenta de cobro">⚠ Falta ${_fal.join(', ')}</span>`:'';
     const btn=cargados.length<ORDEN.length
         ? `<button class="btn btn-green" style="padding:6px 12px" onclick="continuarLote('${le}','${ne}')">▶️ Continuar cargando</button>`
         : '<span style="color:#7fe39a;font-size:12px;font-weight:600">✅ Completo</span>';
@@ -935,7 +942,7 @@ function renderBusqueda(){
     const puedeDel=(typeof puedeBorrarCarpetas==='function')&&puedeBorrarCarpetas();
     const btnDel=puedeDel?`<button class="btn btn-ghost" style="padding:6px 12px;margin-left:6px" onclick="eliminarLoteUI('${le}')">🗑️ Eliminar</button>`:'';
     const chkCell=full?`<td style="text-align:center"><input type="checkbox" class="chk-lote" value="${le}" style="width:16px;height:16px;accent-color:var(--cyan)"></td>`:'<td></td>';
-    return `<tr>${chkCell}<td><b>${l.lote}</b></td><td>${l.nit}</td><td>${pill}</td><td>${chips}</td><td>${l.fecha}</td><td style="white-space:nowrap">${btnRen}${btn}${btnDel}</td></tr>`;
+    return `<tr>${chkCell}<td><b>${l.lote}</b></td><td>${l.nit}</td><td>${pill}${pillFalt}</td><td>${chips}</td><td>${l.fecha}</td><td style="white-space:nowrap">${btnRen}${btn}${btnDel}</td></tr>`;
   }).join('');
   const _full=(typeof puedeBusqCompleta==='function')&&puedeBusqCompleta();
   const _thChk=_full?'<th style="text-align:center"><input type="checkbox" id="chkAll" style="width:16px;height:16px;accent-color:var(--cyan)"></th>':'<th></th>';
@@ -990,8 +997,43 @@ function updateSelCount(){
   const el=$('#selCount'); if(el) el.textContent=n+' seleccionado'+(n===1?'':'s');
 }
 window.updateSelCount=updateSelCount;
+/* ================= CANDADO SAYAYIN: DOCUMENTOS OBLIGATORIOS =================
+   Para poder crear una cuenta de cobro, cada lote debe tener al menos:
+   CRC, PDE, HAU, HEV y HAM. Si le falta alguno, NO se crea la cuenta. */
+const DOCS_OBLIGATORIOS=['CRC','PDE','HAU','HEV','HAM'];
+function lotesGuardados(){ try{return JSON.parse(localStorage.getItem(LS_LOTES)||'[]');}catch(e){return [];} }
+function _normLote(v){ return String(v==null?'':v).trim().toUpperCase(); }
+function tiposDeLote(lote){
+  const K=_normLote(lote);
+  const L=lotesGuardados().find(x=>_normLote(x.lote)===K);
+  return L?((L.docs||[]).map(d=>String((d&&d.tipo)||'').toUpperCase())):[];
+}
+function loteRegistrado(lote){ const K=_normLote(lote); return lotesGuardados().some(x=>_normLote(x.lote)===K); }
+function faltantesDeLote(lote){
+  const t=tiposDeLote(lote);
+  return DOCS_OBLIGATORIOS.filter(d=>t.indexOf(d)<0);
+}
+function _fraseFaltan(arr){
+  if(!arr.length) return '';
+  if(arr.length===1) return 'Falta '+arr[0];
+  return 'Faltan '+arr.slice(0,-1).join(', ')+' y '+arr[arr.length-1];
+}
+function revisarLotesObligatorios(lotes){
+  const malos=[];
+  (lotes||[]).forEach(l=>{ const f=faltantesDeLote(l); if(f.length) malos.push({lote:l,faltan:f,registrado:loteRegistrado(l)}); });
+  return malos;
+}
+async function avisarFaltantes(malos,cabecera){
+  if(!malos.length) return;
+  const lineas=malos.map(m=>'• <b>'+_fraseFaltan(m.faltan)+' del lote '+valEsc(m.lote)+'</b>'+(m.registrado?'':' <i>(ese lote no está en la lista; pulsa 🔄 Actualizar con Drive)</i>')).join('<br>');
+  await uiAlert(cabecera||'⛔ No se puede crear la cuenta de cobro',
+    'Estos lotes <b>no tienen todos los documentos obligatorios</b> ('+DOCS_OBLIGATORIOS.join(', ')+'):<br><br>'+lineas+
+    '<br><br>Carga lo que falta en <b>Documentos</b> (usa <b>▶️ Continuar cargando</b>) y vuelve a intentar.');
+}
 async function crearCCDesde(lotes){
   if(!lotes||!lotes.length){toast('⚠️ Marca al menos una carpeta (columna ☑️).');return;}
+  const malos=revisarLotesObligatorios(lotes);
+  if(malos.length){ await avisarFaltantes(malos, lotes.length>1?'⛔ No se puede crear la cuenta (faltan soportes)':'⛔ No se puede crear la cuenta de cobro'); return; }
   const sugerido=String(siguienteNumeroCC());
   const num=await uiPrompt({title:'🧾 Nueva cuenta de cobro',msg:'Se incluirán <b>'+lotes.length+'</b> lote(s):<br><b>'+lotes.join(', ')+'</b><br><br>N° consecutivo de la cuenta de cobro (puedes cambiarlo):',value:sugerido,okText:'Guardar',cancelText:'Cancelar'});
   if(num===null) return;
@@ -1228,12 +1270,14 @@ function ccLotesDe(c){ if(Array.isArray(c.lotes)) return c.lotes.filter(Boolean)
 function ccEpsDe(c){ return c.eps||'FIDUPREVISORA S.A'; }
 function ensureCCIds(){ const data=JSON.parse(localStorage.getItem(LS_CC)||'[]'); let ch=false; data.forEach(c=>{ if(!c.id){c.id=nuevoCCId();ch=true;} }); if(ch) localStorage.setItem(LS_CC,JSON.stringify(data)); return data; }
 function ccPorId(id){ return (JSON.parse(localStorage.getItem(LS_CC)||'[]')).find(c=>c.id===id); }
-$('#btnAddCC').addEventListener('click',()=>{
+$('#btnAddCC').addEventListener('click',async ()=>{
   const num=$('#ccNum').value.trim();
   const eps=($('#ccEps')?$('#ccEps').value.trim():'')||'FIDUPREVISORA S.A';
   const loteRaw=$('#ccLote').value.trim(),valor=$('#ccValor').value.trim();
   if(!num){toast('⚠️ Escribe el N° de cuenta de cobro.');return;}
   const lotes=loteRaw?loteRaw.split(/[,;]+/).map(s=>s.trim()).filter(Boolean):[];
+  const malos=revisarLotesObligatorios(lotes);
+  if(malos.length){ await avisarFaltantes(malos); return; }
   const data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
   data.unshift({id:nuevoCCId(),num,eps,lotes,valor,fecha:new Date().toLocaleString('es-CO')});
   localStorage.setItem(LS_CC,JSON.stringify(data));
@@ -1254,11 +1298,13 @@ function renderCuentas(){
   if(!data.length){cont.innerHTML='<div class="empty">No hay cuentas de cobro'+((q||fEps)?' que coincidan con el filtro':' registradas')+'.</div>';return;}
   let rows=data.map(c=>{
     const lotes=ccLotesDe(c); const nf=lotes.length; const id=c.id;
+    const _mal=(typeof revisarLotesObligatorios==='function')?revisarLotesObligatorios(lotes):[];
+    const avisoFalt=_mal.length?`<div style="font-size:10.5px;color:#ffc48a;margin-top:2px">⚠ ${_mal.length} lote(s) con soportes incompletos</div>`:'';
     const acc=`<button class="btn btn-green" style="padding:5px 10px;margin:2px" onclick="ccDescargarZip('${id}')">⬇️ Descargar ZIP</button>`
       +`<button class="btn btn-cyan" style="padding:5px 10px;margin:2px" onclick="ccEditarFacturas('${id}')">✏️ Editar facturas</button>`
       +`<button class="btn btn-ghost" style="padding:5px 10px;margin:2px" onclick="ccValidarSoportes('${id}')">🔎 Validar soportes</button>`
       +`<button class="btn btn-ghost" style="padding:5px 10px;margin:2px" onclick="delCC('${id}')">🗑️</button>`;
-    return `<tr><td><b>${c.num}</b></td><td>${c.fecha||'-'}</td><td style="text-align:center">${nf}</td><td>${c.valor||'-'}</td><td style="white-space:nowrap">${acc}</td></tr>`;
+    return `<tr><td><b>${c.num}</b></td><td>${c.fecha||'-'}</td><td style="text-align:center">${nf}${avisoFalt}</td><td>${c.valor||'-'}</td><td style="white-space:nowrap">${acc}</td></tr>`;
   }).join('');
   cont.innerHTML=`<table><thead><tr><th>N° de cuenta</th><th>Fecha</th><th style="text-align:center">Facturas</th><th>Valor</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
@@ -1311,9 +1357,11 @@ window.ccEditarFacturas=function(id){
   if(filtro) filtro.addEventListener('input',ccRenderEditDisp);
   const cancel=$('#ccEditCancel'), save=$('#ccEditSave');
   if(cancel) cancel.addEventListener('click',()=>{$('#ccEditOv').classList.remove('show');_ccEditState=null;});
-  if(save) save.addEventListener('click',()=>{
+  if(save) save.addEventListener('click',async ()=>{
     if(!_ccEditState)return;
     const id=_ccEditState.id, num=_ccEditState.num, lotes=_ccEditState.sel.slice(), val=($('#ccEditValor').value||'').trim();
+    const malos=revisarLotesObligatorios(lotes);
+    if(malos.length){ await avisarFaltantes(malos,'⛔ No se puede guardar: faltan soportes'); return; }
     let data=JSON.parse(localStorage.getItem(LS_CC)||'[]');
     data=data.map(x=>{ if(x.id===id){ x.lotes=lotes; x.valor=val; } return x; });
     localStorage.setItem(LS_CC,JSON.stringify(data));
